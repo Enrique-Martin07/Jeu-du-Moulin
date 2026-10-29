@@ -138,7 +138,11 @@ function switchGameMode(mode) {
 
 function initPeer() {
   const randomId = "moulin-" + Math.floor(1000 + Math.random() * 9000);
-  peer = new Peer(randomId);
+  peer = new Peer(randomId, {
+    host: "0.peerjs.com",
+    port: 443,
+    secure: true,
+  });
 
   peer.on("open", (id) => {
     document.getElementById("my-peer-id").textContent = id;
