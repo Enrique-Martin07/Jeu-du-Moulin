@@ -233,6 +233,11 @@ function setupConnectionHandlers() {
       alert("L'adversaire a décliné l'invitation.");
       return;
     }
+    if (data.type === "RESTART") {
+      initGame();
+      return;
+    }
+
     if (data.type === "GAME_STATE") {
       state = data.state;
       updateUI();
