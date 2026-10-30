@@ -136,6 +136,16 @@ function switchGameMode(mode) {
   initGame();
 }
 
+const btnRestart = document.getElementById("btn-restart");
+if (btnRestart) {
+  btnRestart.addEventListener("click", () => {
+    initGame;
+    if (activeMode === "online" && conn && conn.open) {
+      conn.send({ type: "RESTART" });
+    }
+  });
+}
+
 function initPeer() {
   const randomId = "moulin-" + Math.floor(1000 + Math.random() * 9000);
   peer = new Peer(randomId, {
