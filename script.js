@@ -367,6 +367,8 @@ function handleNodeClick(index) {
     return; // Empêche le clic pendant le tour du bot
   }
 
+  playSound("click");
+
   processMove(index);
   broadcastGameState();
 }
@@ -403,6 +405,7 @@ function processMove(index) {
 
       if (checkMillCreated(index, state.currentPlayer)) {
         state.isRemoving = true;
+        playSound("mill");
       } else {
         switchTurn();
       }
@@ -438,6 +441,7 @@ function processMove(index) {
 
         if (checkMillCreated(index, state.currentPlayer)) {
           state.isRemoving = true;
+          playSound("mill");
         } else {
           switchTurn();
         }
@@ -501,6 +505,7 @@ function triggerAIMove() {
 
     if (checkMillCreated(randPos, PLAYER.RED)) {
       state.isRemoving = true;
+      playSound("mill");
       setTimeout(triggerAIMove, 400);
     } else {
       switchTurn();
@@ -520,6 +525,7 @@ function triggerAIMove() {
 
         if (checkMillCreated(target, PLAYER.RED)) {
           state.isRemoving = true;
+          playSound("mill");
           setTimeout(triggerAIMove, 400);
         } else {
           switchTurn();
@@ -608,6 +614,11 @@ function updateUI() {
         : activeMode === "ai"
           ? "L'Ordinateur"
           : "Joueur Rouge";
+    if (state.winner === myRole) {
+      playSound("win");
+    } else {
+      playSound("lose");
+    }
     statusText.className = "text-lg font-bold text-emerald-400";
     statusText.innerHTML = `<i class="fa-solid fa-trophy mr-2"></i> Victoire : ${winnerName} !`;
     phaseText.textContent =
