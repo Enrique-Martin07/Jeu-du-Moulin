@@ -598,12 +598,36 @@ function updateUI() {
   redOnBoardEl.textContent = getPieceCountOnBoard(PLAYER.RED);
 
   if (state.currentPlayer === PLAYER.BLUE) {
-    cardBlue.classList.add("border-sky-500/80", "bg-slate-800/80");
-    cardRed.classList.remove("border-rose-500/80", "bg-slate-800/80");
+    cardBlue.classList.add(
+      "border-sky-500",
+      "shadow-lg",
+      "shadow-sky-500/50",
+      "animate-pulse",
+    );
+    cardBlue.classList.remove("border-transparent");
+
+    cardRed.classList.remove(
+      "border-rose-500",
+      "shadow-lg",
+      "shadow-rose-500/50",
+      "animate-pulse",
+    );
     cardRed.classList.add("border-transparent");
   } else {
-    cardRed.classList.add("border-rose-500/80", "bg-slate-800/80");
-    cardBlue.classList.remove("border-sky-500/80", "bg-slate-800/80");
+    cardRed.classList.add(
+      "border-rose-500",
+      "shadow-lg",
+      "shadow-rose-500/50",
+      "animate-pulse",
+    );
+    cardRed.classList.remove("border-transparent");
+
+    cardBlue.classList.remove(
+      "border-sky-500",
+      "shadow-lg",
+      "shadow-sky-500/50",
+      "animate-pulse",
+    );
     cardBlue.classList.add("border-transparent");
   }
 
