@@ -139,7 +139,7 @@ function switchGameMode(mode) {
 const btnRestart = document.getElementById("btn-restart");
 if (btnRestart) {
   btnRestart.addEventListener("click", () => {
-    initGame;
+    initGame();
     if (activeMode === "online" && conn && conn.open) {
       conn.send({ type: "RESTART" });
     }
