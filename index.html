@@ -269,6 +269,37 @@
       </div>
     </div>
 
+    <!-- Fenêtre modale de fin de partie -->
+    <div
+      id="winModal"
+      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity duration-300"
+    >
+      <div
+        class="bg-slate-900 border border-slate-700 rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl text-center transform scale-95 transition-transform duration-300"
+        id="modalContent"
+      >
+        <!-- Icône Trophée / Statut -->
+        <div id="modalIcon" class="text-5xl mb-4 text-amber-400">
+          <i class="fa-solid fa-trophy"></i>
+        </div>
+        <!-- Titre (ex: Victoire !) -->
+        <h2 id="modalTitle" class="text-2xl font-bold text-white mb-2">
+          Victoire !
+        </h2>
+        <!-- Description / Message -->
+        <p id="modalMessage" class="text-slate-300 mb-6">
+          Le Joueur Bleu a remporté la partie.
+        </p>
+        <!-- Bouton Rejouer -->
+        <button
+          onclick="resetGame()"
+          class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 cursor-pointer"
+        >
+          Rejouer une partie
+        </button>
+      </div>
+    </div>
+
     <!-- Game Engine Script -->
     <script src="script.js"></script>
   </body>

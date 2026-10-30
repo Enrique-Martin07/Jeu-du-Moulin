@@ -101,6 +101,30 @@ const redOnBoardEl = document.getElementById("red-on-board");
 const cardBlue = document.getElementById("card-blue");
 const cardRed = document.getElementById("card-red");
 
+const modal = document.getElementById("winModal");
+const modalTitle = document.getElementById("modalTitle");
+const modalMessage = document.getElementById("modalMessage");
+const modalIcon = document.getElementById("modalIcon");
+
+function showWinModal(winnerName, isVictory) {
+  if (isVictory) {
+    modalTitle.textContent = "Victoire ! 🏆";
+    modalMessage.textContent = `${winnerName} a gagné la partie.`;
+    modalIcon.innerHTML =
+      '<i class="fa-solid fa-trophy text-amber-400 animate-bounce"></i>';
+  } else {
+    modalTitle.textContent = "Défaite... 💀";
+    modalMessage.textContent = `${winnerName} a remporté la partie.`;
+    modalIcon.innerHTML =
+      '<i class="fa-solid fa-face-frown text-rose-400"></i>';
+  }
+  modal.classList.remove("hidden");
+}
+
+function hideWinModal() {
+  modal.classList.add("hidden");
+}
+
 function switchGameMode(mode) {
   activeMode = mode;
 
@@ -139,11 +163,20 @@ function switchGameMode(mode) {
 const btnRestart = document.getElementById("btn-restart");
 if (btnRestart) {
   btnRestart.addEventListener("click", () => {
+    hideWinModal();
     initGame();
     if (activeMode === "online" && conn && conn.open) {
       conn.send({ type: "RESTART" });
     }
   });
+}
+
+function resetGame() {
+  hideWinModal();
+  initGame();
+  if (activeMode === "online" && conn && conn.open) {
+    conn.send({ type: "RESTART" });
+  }
 }
 
 function initPeer() {
@@ -638,15 +671,25 @@ function updateUI() {
         : activeMode === "ai"
           ? "L'Ordinateur"
           : "Joueur Rouge";
-    if (state.winner === myRole) {
+
+    const isVictory =
+      state.winner === myRole ||
+      (activeMode === "local" && state.winner === PLAYER.BLUE);
+
+    if (isVictory) {
       playSound("win");
+      modalTitle.textContent = "Victoire ! 🏆";
+      modalMessage.textContent = `${winnerName} a gagné la partie.`;
+      modalIcon.innerHTML =
+        '<i class="fa-solid fa-trophy text-amber-400 animate-bounce"></i>';
     } else {
       playSound("lose");
+      modalTitle.textContent = "Défaite... 💀";
+      modalMessage.textContent = `${winnerName} a remporté la partie.`;
+      modalIcon.innerHTML =
+        '<i class="fa-solid fa-face-frown text-rose-400"></i>';
     }
-    statusText.className = "text-lg font-bold text-emerald-400";
-    statusText.innerHTML = `<i class="fa-solid fa-trophy mr-2"></i> Victoire : ${winnerName} !`;
-    phaseText.textContent =
-      "Partie terminée. Cliquez sur recommencer pour rejouer.";
+    winModal.classList.remove("hidden");
   } else if (state.isRemoving) {
     const curName =
       state.currentPlayer === PLAYER.BLUE
