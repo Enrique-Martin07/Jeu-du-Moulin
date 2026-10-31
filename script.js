@@ -128,6 +128,7 @@ function setAIDifficulty(level) {
       btn.className =
         "flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50";
     }
+    initGame();
   });
 }
 
