@@ -624,6 +624,78 @@ function checkWinConditions(opponent) {
   return state.reserves[opponent] === 0 && getPieceCountOnBoard(opponent) < 3;
 }
 
+// Définition des thèmes de couleurs
+const colorThemes = {
+  classic: {
+    player1: {
+      bg: "bg-blue-600",
+      border: "border-blue-400",
+      text: "text-blue-400",
+    },
+    player2: {
+      bg: "bg-red-600",
+      border: "border-red-400",
+      text: "text-red-400",
+    },
+  },
+  emerald: {
+    player1: {
+      bg: "bg-emerald-600",
+      border: "border-emerald-400",
+      text: "text-emerald-400",
+    },
+    player2: {
+      bg: "bg-orange-600",
+      border: "border-orange-400",
+      text: "text-orange-400",
+    },
+  },
+  monochrome: {
+    player1: {
+      bg: "bg-slate-900",
+      border: "border-slate-500",
+      text: "text-slate-300",
+    },
+    player2: { bg: "bg-slate-100", border: "border-white", text: "text-white" },
+  },
+  neon: {
+    player1: {
+      bg: "bg-cyan-500",
+      border: "border-cyan-300",
+      text: "text-cyan-300",
+    },
+    player2: {
+      bg: "bg-fuchsia-600",
+      border: "border-fuchsia-400",
+      text: "text-fuchsia-400",
+    },
+  },
+};
+// Thème actuel par défaut
+let currentTheme = colorThemes.classic;
+
+function changeTheme(themeName) {
+  if (colorThemes[themeName]) {
+    currentTheme = colorThemes[themeName];
+
+    // Nettoie toutes les anciennes classes de bordure possibles sur les cartes
+    const allBorders = [
+      "border-blue-400",
+      "border-red-400",
+      "border-emerald-400",
+      "border-orange-400",
+      "border-slate-500",
+      "border-white",
+      "border-cyan-300",
+      "border-fuchsia-400",
+    ];
+    cardBlue.classList.remove(...allBorders);
+    cardRed.classList.remove(...allBorders);
+
+    updateUI(); // Rafraîchit l'affichage avec les nouvelles couleurs
+  }
+}
+
 function updateUI() {
   blueReserveEl.textContent = state.reserves[PLAYER.BLUE];
   blueOnBoardEl.textContent = getPieceCountOnBoard(PLAYER.BLUE);
@@ -632,33 +704,29 @@ function updateUI() {
 
   if (state.currentPlayer === PLAYER.BLUE) {
     cardBlue.classList.add(
-      "border-sky-500",
+      currentTheme.player1.border,
       "shadow-lg",
-      "shadow-sky-500/50",
       "animate-pulse",
     );
     cardBlue.classList.remove("border-transparent");
 
     cardRed.classList.remove(
-      "border-rose-500",
+      currentTheme.player2.border,
       "shadow-lg",
-      "shadow-rose-500/50",
       "animate-pulse",
     );
     cardRed.classList.add("border-transparent");
   } else {
     cardRed.classList.add(
-      "border-rose-500",
+      currentTheme.player2.border,
       "shadow-lg",
-      "shadow-rose-500/50",
       "animate-pulse",
     );
     cardRed.classList.remove("border-transparent");
 
     cardBlue.classList.remove(
-      "border-sky-500",
+      currentTheme.player1.border,
       "shadow-lg",
-      "shadow-sky-500/50",
       "animate-pulse",
     );
     cardBlue.classList.add("border-transparent");
@@ -717,9 +785,27 @@ function updateUI() {
         : "";
 
     const colorClass =
-      state.currentPlayer === PLAYER.BLUE ? "text-sky-400" : "text-rose-400";
+      state.currentPlayer === PLAYER.BLUE
+        ? currentTheme.player1.text
+        : currentTheme.player2.text;
     statusText.className = `text-base font-semibold ${colorClass}`;
     statusText.textContent = `Tour : ${curName}${turnNotice}`;
+
+    const p1Dot = document.getElementById("p1-dot");
+    const p2Dot = document.getElementById("p2-dot");
+
+    if (p1Dot)
+      p1Dot.className = `w-6 h-6 rounded-full ${currentTheme.player1.bg} shadow`;
+    if (p2Dot)
+      p2Dot.className = `w-6 h-6 rounded-full ${currentTheme.player2.bg} shadow`;
+
+    const p1Stats = document.getElementById("p1-stats");
+    const p2Stats = document.getElementById("p2-stats");
+
+    if (p1Stats)
+      p1Stats.className = `text-xs font-bold ${currentTheme.player1.text} mt-0.5`;
+    if (p2Stats)
+      p2Stats.className = `text-xs font-bold ${currentTheme.player2.text} mt-0.5`;
 
     const reserve = state.reserves[state.currentPlayer];
     const boardCount = getPieceCountOnBoard(state.currentPlayer);
@@ -753,7 +839,9 @@ function updateUI() {
 
     if (val !== PLAYER.NONE) {
       const piece = document.createElement("div");
-      piece.className = `piece ${val === PLAYER.BLUE ? "blue" : "red"}`;
+      const pColor =
+        val === PLAYER.BLUE ? currentTheme.player1 : currentTheme.player2;
+      piece.className = `piece ${pColor.bg} border-2 ${pColor.border}`;
 
       if (i === state.selectedNode) piece.classList.add("selected");
 

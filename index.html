@@ -59,6 +59,23 @@
           </button>
         </div>
 
+        <!-- Sélecteur de thèmes de pions -->
+        <div class="mb-4">
+          <label class="block text-slate-300 text-xs font-semibold mb-1"
+            >Thème des pions :</label
+          >
+          <select
+            id="colorTheme"
+            onchange="changeTheme(this.value)"
+            class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            <option value="classic">Bleu & Rouge (Classique)</option>
+            <option value="emerald">Vert & Orange</option>
+            <option value="monochrome">Noir & Blanc</option>
+            <option value="neon">Cyan & Rose Néon</option>
+          </select>
+        </div>
+
         <!-- Connection & ID Bar (Hidden outside Online mode) -->
         <div
           id="online-bar"
@@ -141,12 +158,13 @@
               <div class="text-xs text-slate-400 font-medium" id="blue-label">
                 Joueur Bleu
               </div>
-              <div class="text-xs font-bold text-sky-400 mt-0.5">
+              <div id="p1-stats" class="text-xs font-bold text-sky-400 mt-0.5">
                 Plateau: <span id="blue-on-board">0</span> | Réserve:
                 <span id="blue-reserve">9</span>
               </div>
             </div>
             <div
+              id="p1-dot"
               class="w-6 h-6 rounded-full bg-gradient-to-tr from-sky-600 to-sky-400 shadow"
             ></div>
           </div>
@@ -156,13 +174,14 @@
             class="bg-slate-800/40 border-2 border-transparent rounded-xl p-2.5 flex items-center justify-between transition-all"
           >
             <div
+              id="p2-dot"
               class="w-6 h-6 rounded-full bg-gradient-to-tr from-rose-600 to-rose-400 shadow"
             ></div>
             <div class="text-right">
               <div class="text-xs text-slate-400 font-medium" id="red-label">
                 Joueur Rouge
               </div>
-              <div class="text-xs font-bold text-rose-400 mt-0.5">
+              <div id="p2-stats" class="text-xs font-bold text-rose-400 mt-0.5">
                 Plateau: <span id="red-on-board">0</span> | Réserve:
                 <span id="red-reserve">9</span>
               </div>
