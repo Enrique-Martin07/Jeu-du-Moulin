@@ -13,6 +13,23 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   </head>
   <body class="min-h-screen flex flex-col justify-between p-3 md:p-6">
+    <!-- Écran d'animation d'entrée -->
+    <div
+      id="intro-screen"
+      class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center transition-opacity duration-700"
+    >
+      <div class="text-center transform animate-pulse">
+        <h1
+          class="text-4xl md:text-6xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-rose-400 mb-2"
+        >
+          JEU DU MOULIN
+        </h1>
+        <p class="text-sm text-slate-400 tracking-widest uppercase">
+          Chargement de la partie...
+        </p>
+      </div>
+    </div>
+
     <!-- Header Section -->
     <header class="max-w-4xl mx-auto w-full text-center mb-2">
       <h1
@@ -74,6 +91,60 @@
             <option value="monochrome">Noir & Blanc</option>
             <option value="neon">Cyan & Rose Néon</option>
           </select>
+        </div>
+
+        <!-- Sélecteur de difficulté (Visible uniquement en mode IA) -->
+        <div
+          id="difficulty-container"
+          class="mb-4 bg-slate-800/80 border border-slate-700 p-3 rounded-xl shadow-lg hidden"
+        >
+          <label class="block text-slate-300 text-xs font-semibold mb-2">
+            <i class="fa-solid fa-gauge-high text-sky-400 mr-1"></i> Niveau de
+            difficulté :
+          </label>
+          <div class="flex gap-2">
+            <button
+              id="btn-diff-easy"
+              onclick="setAIDifficulty('easy')"
+              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow"
+            >
+              Facile
+            </button>
+            <button
+              id="btn-diff-medium"
+              onclick="setAIDifficulty('medium')"
+              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+            >
+              Moyen
+            </button>
+            <button
+              id="btn-diff-hard"
+              onclick="setAIDifficulty('hard')"
+              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+            >
+              Difficile
+            </button>
+          </div>
+        </div>
+
+        <!-- Sélecteur de pseudo (Visible uniquement en mode En Ligne) -->
+        <div
+          id="pseudo-container"
+          class="mb-4 bg-slate-800/80 border border-slate-700 p-3 rounded-xl shadow-lg hidden"
+        >
+          <label
+            class="block text-slate-300 text-xs font-semibold mb-1"
+            for="player-pseudo"
+          >
+            <i class="fa-solid fa-user text-sky-400 mr-1"></i> Mon Pseudo :
+          </label>
+          <input
+            type="text"
+            id="player-pseudo"
+            placeholder="Entre ton pseudo..."
+            value="Joueur"
+            class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
+          />
         </div>
 
         <!-- Connection & ID Bar (Hidden outside Online mode) -->
@@ -201,10 +272,10 @@
       </div>
 
       <!-- Right Column: Chat & Settings -->
-      <div class="w-full lg:w-1/3 flex flex-col gap-3">
+      <div id="right-column" class="w-full lg:w-1/3 flex flex-col gap-3">
         <div
           id="chat-card"
-          class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex flex-col h-[380px] lg:h-[480px] shadow-lg"
+          class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex flex-col h-[380px] lg:h-[480px] shadow-lg hidden"
         >
           <h2
             class="text-sm font-bold text-slate-300 border-b border-slate-700/80 pb-2 mb-2 flex items-center gap-2"

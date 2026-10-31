@@ -84,10 +84,12 @@ let state = {
 };
 
 let activeMode = "local"; // 'local', 'ai', 'online'
+let aiDifficulty = "easy"; // 'easy', 'medium', 'hard'
 let myRole = PLAYER.BLUE;
 let peer = null;
 let conn = null;
 let pendingConn = null;
+let opponentName = "Adversaire";
 
 const canvas = document.getElementById("board-canvas");
 const ctx = canvas.getContext("2d");
@@ -105,6 +107,29 @@ const modal = document.getElementById("winModal");
 const modalTitle = document.getElementById("modalTitle");
 const modalMessage = document.getElementById("modalMessage");
 const modalIcon = document.getElementById("modalIcon");
+
+function getMyPseudo() {
+  const input = document.getElementById("player-pseudo");
+  return input && input.value.trim()
+    ? input.value.trim()
+    : myRole === PLAYER.BLUE
+      ? "Joueur Bleu"
+      : "Joueur Rouge";
+}
+
+function setAIDifficulty(level) {
+  aiDifficulty = level;
+  ["easy", "medium", "hard"].forEach((lvl) => {
+    const btn = document.getElementById(`btn-diff-${lvl}`);
+    if (lvl === level) {
+      btn.className =
+        "flex-1 py-1.5 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow";
+    } else {
+      btn.className =
+        "flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50";
+    }
+  });
+}
 
 function showWinModal(winnerName, isVictory) {
   if (isVictory) {
@@ -128,7 +153,6 @@ function hideWinModal() {
 function switchGameMode(mode) {
   activeMode = mode;
 
-  // Buttons highlight
   ["ai", "local", "online"].forEach((m) => {
     const btn = document.getElementById(`btn-mode-${m}`);
     if (m === mode) {
@@ -142,19 +166,36 @@ function switchGameMode(mode) {
 
   const onlineBar = document.getElementById("online-bar");
   const invitePanel = document.getElementById("invite-panel");
+  const pseudoContainer = document.getElementById("pseudo-container");
+  const difficultyContainer = document.getElementById("difficulty-container");
+  const chatCard = document.getElementById("chat-card");
   const redLabel = document.getElementById("red-label");
 
   if (mode === "online") {
     onlineBar.classList.remove("hidden");
     invitePanel.classList.remove("hidden");
+    pseudoContainer.classList.remove("hidden");
+    difficultyContainer.classList.add("hidden");
+    chatCard.classList.remove("hidden");
     redLabel.textContent = "Joueur Rouge (Invité)";
     enableChat(true);
     if (!peer) initPeer();
+  } else if (mode === "ai") {
+    onlineBar.classList.add("hidden");
+    invitePanel.classList.add("hidden");
+    pseudoContainer.classList.add("hidden");
+    difficultyContainer.classList.remove("hidden"); // Visible en IA
+    chatCard.classList.add("hidden");
+    enableChat(false);
+    redLabel.textContent = "Ordinateur (IA)";
   } else {
     onlineBar.classList.add("hidden");
     invitePanel.classList.add("hidden");
+    pseudoContainer.classList.add("hidden");
+    difficultyContainer.classList.add("hidden");
+    chatCard.classList.add("hidden");
     enableChat(false);
-    redLabel.textContent = mode === "ai" ? "Ordinateur (IA)" : "Joueur Rouge";
+    redLabel.textContent = "Joueur Rouge";
   }
 
   initGame();
@@ -247,6 +288,8 @@ document.getElementById("btn-decline-invite").addEventListener("click", () => {
 });
 
 function setupConnectionHandlers() {
+  const myPseudo = getMyPseudo();
+
   conn.on("open", () => {
     addChatMessage(
       "Système",
@@ -255,6 +298,8 @@ function setupConnectionHandlers() {
         ".",
     );
     document.getElementById("invite-panel").classList.add("hidden");
+    conn.send({ type: "PSEUDO", pseudo: myPseudo });
+
     if (myRole === PLAYER.BLUE) {
       initGame();
       broadcastGameState();
@@ -270,13 +315,18 @@ function setupConnectionHandlers() {
       initGame();
       return;
     }
-
+    if (data.type === "PSEUDO") {
+      opponentName = data.pseudo;
+      updateUI();
+      addChatMessage("Système", `${opponentName} a rejoint la partie.`);
+      return;
+    }
     if (data.type === "GAME_STATE") {
       state = data.state;
       updateUI();
     }
     if (data.type === "CHAT") {
-      addChatMessage("Adversaire", data.message);
+      addChatMessage(opponentName, data.message);
     }
   });
 }
@@ -301,7 +351,8 @@ chatForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const msg = chatInput.value.trim();
   if (msg && activeMode === "online" && conn) {
-    addChatMessage("Moi", msg);
+    const myPseudo = getMyPseudo();
+    addChatMessage(myPseudo, msg);
     conn.send({ type: "CHAT", message: msg });
     chatInput.value = "";
   }
@@ -311,8 +362,12 @@ function addChatMessage(sender, text) {
   const msgDiv = document.createElement("div");
   msgDiv.className = "mb-1";
   let color = "text-slate-300";
-  if (sender === "Moi") color = "text-sky-400 font-semibold";
-  if (sender === "Adversaire") color = "text-rose-400 font-semibold";
+  const myPseudo = getMyPseudo();
+
+  if (sender === myPseudo || sender === "Moi")
+    color = "text-sky-400 font-semibold";
+  if (sender === opponentName || sender === "Adversaire")
+    color = "text-rose-400 font-semibold";
   if (sender === "Système") color = "text-amber-400 italic";
 
   msgDiv.innerHTML = `<span class="${color}">${sender} :</span> ${escapeHtml(text)}`;
@@ -397,7 +452,7 @@ function handleNodeClick(index) {
   }
 
   if (activeMode === "ai" && state.currentPlayer === PLAYER.RED) {
-    return; // Empêche le clic pendant le tour du bot
+    return;
   }
 
   playSound("click");
@@ -530,23 +585,75 @@ function triggerAIMove() {
     return;
   }
 
+  // --- PHASE 1 : PLACEMENT ---
   if (state.reserves[PLAYER.RED] > 0) {
     const empties = getEmptyNodes();
-    const randPos = empties[Math.floor(Math.random() * empties.length)];
-    state.board[randPos] = PLAYER.RED;
+    let targetPos = null;
+
+    if (aiDifficulty !== "easy") {
+      for (let pos of empties) {
+        state.board[pos] = PLAYER.RED;
+        if (checkMillCreated(pos, PLAYER.RED)) {
+          targetPos = pos;
+          state.board[pos] = PLAYER.NONE;
+          break;
+        }
+        state.board[pos] = PLAYER.NONE;
+      }
+
+      if (targetPos === null && aiDifficulty === "hard") {
+        for (let pos of empties) {
+          state.board[pos] = PLAYER.BLUE;
+          if (checkMillCreated(pos, PLAYER.BLUE)) {
+            targetPos = pos;
+            state.board[pos] = PLAYER.NONE;
+            break;
+          }
+          state.board[pos] = PLAYER.NONE;
+        }
+      }
+    }
+
+    if (targetPos === null) {
+      targetPos = empties[Math.floor(Math.random() * empties.length)];
+    }
+
+    state.board[targetPos] = PLAYER.RED;
     state.reserves[PLAYER.RED]--;
 
-    if (checkMillCreated(randPos, PLAYER.RED)) {
+    if (checkMillCreated(targetPos, PLAYER.RED)) {
       state.isRemoving = true;
       playSound("mill");
       setTimeout(triggerAIMove, 400);
     } else {
       switchTurn();
     }
-  } else {
+  }
+  // --- PHASE 2 & 3 : DÉPLACEMENT / VOL ---
+  else {
     const redPieces = getPieceIndices(PLAYER.RED);
     const isFlying = redPieces.length === 3;
     let moved = false;
+
+    if (aiDifficulty !== "easy") {
+      for (let p of redPieces) {
+        const moves = isFlying ? getEmptyNodes() : getValidMoves(p);
+        for (let target of moves) {
+          state.board[target] = PLAYER.RED;
+          state.board[p] = PLAYER.NONE;
+          if (checkMillCreated(target, PLAYER.RED)) {
+            moved = true;
+            state.isRemoving = true;
+            playSound("mill");
+            setTimeout(triggerAIMove, 400);
+            updateUI();
+            return;
+          }
+          state.board[p] = PLAYER.RED;
+          state.board[target] = PLAYER.NONE;
+        }
+      }
+    }
 
     for (let p of redPieces) {
       const moves = isFlying ? getEmptyNodes() : getValidMoves(p);
@@ -624,7 +731,6 @@ function checkWinConditions(opponent) {
   return state.reserves[opponent] === 0 && getPieceCountOnBoard(opponent) < 3;
 }
 
-// Définition des thèmes de couleurs
 const colorThemes = {
   classic: {
     player1: {
@@ -671,14 +777,13 @@ const colorThemes = {
     },
   },
 };
-// Thème actuel par défaut
+
 let currentTheme = colorThemes.classic;
 
 function changeTheme(themeName) {
   if (colorThemes[themeName]) {
     currentTheme = colorThemes[themeName];
 
-    // Nettoie toutes les anciennes classes de bordure possibles sur les cartes
     const allBorders = [
       "border-blue-400",
       "border-red-400",
@@ -692,7 +797,7 @@ function changeTheme(themeName) {
     cardBlue.classList.remove(...allBorders);
     cardRed.classList.remove(...allBorders);
 
-    updateUI(); // Rafraîchit l'affichage avec les nouvelles couleurs
+    updateUI();
   }
 }
 
@@ -701,6 +806,37 @@ function updateUI() {
   blueOnBoardEl.textContent = getPieceCountOnBoard(PLAYER.BLUE);
   redReserveEl.textContent = state.reserves[PLAYER.RED];
   redOnBoardEl.textContent = getPieceCountOnBoard(PLAYER.RED);
+
+  const myPseudo = getMyPseudo();
+  const blueLabelEl = document.getElementById("blue-label");
+  const redLabelEl = document.getElementById("red-label");
+
+  if (activeMode === "online") {
+    if (myRole === PLAYER.BLUE) {
+      blueLabelEl.textContent = myPseudo;
+      redLabelEl.textContent = opponentName;
+    } else {
+      blueLabelEl.textContent = opponentName;
+      redLabelEl.textContent = myPseudo;
+    }
+  } else if (activeMode === "local") {
+    if (currentTheme === colorThemes.emerald) {
+      blueLabelEl.textContent = "Joueur Vert";
+      redLabelEl.textContent = "Joueur Orange";
+    } else if (currentTheme === colorThemes.monochrome) {
+      blueLabelEl.textContent = "Joueur Noir";
+      redLabelEl.textContent = "Joueur Blanc";
+    } else if (currentTheme === colorThemes.neon) {
+      blueLabelEl.textContent = "Joueur Cyan";
+      redLabelEl.textContent = "Joueur Rose";
+    } else {
+      blueLabelEl.textContent = "Joueur Bleu";
+      redLabelEl.textContent = "Joueur Rouge";
+    }
+  } else {
+    blueLabelEl.textContent = "Joueur";
+    redLabelEl.textContent = "Ordinateur (IA)";
+  }
 
   if (state.currentPlayer === PLAYER.BLUE) {
     cardBlue.classList.add(
@@ -733,48 +869,107 @@ function updateUI() {
   }
 
   if (state.gameOver) {
-    const winnerName =
-      state.winner === PLAYER.BLUE
-        ? "Joueur Bleu"
-        : activeMode === "ai"
+    let winnerDisplay = "Joueur Bleu";
+    if (state.winner === PLAYER.RED) {
+      winnerDisplay =
+        activeMode === "ai"
           ? "L'Ordinateur"
-          : "Joueur Rouge";
+          : activeMode === "online"
+            ? opponentName
+            : currentTheme === colorThemes.emerald
+              ? "Joueur Orange"
+              : currentTheme === colorThemes.monochrome
+                ? "Joueur Blanc"
+                : currentTheme === colorThemes.neon
+                  ? "Joueur Rose"
+                  : "Joueur Rouge";
+    } else {
+      winnerDisplay =
+        activeMode === "online" && myRole === PLAYER.BLUE
+          ? myPseudo
+          : activeMode === "local"
+            ? currentTheme === colorThemes.emerald
+              ? "Joueur Vert"
+              : currentTheme === colorThemes.monochrome
+                ? "Joueur Noir"
+                : currentTheme === colorThemes.neon
+                  ? "Joueur Cyan"
+                  : "Joueur Bleu"
+            : "Joueur";
+    }
 
     const isVictory =
       state.winner === myRole ||
-      (activeMode === "local" && state.winner === PLAYER.BLUE);
+      (activeMode === "local" && state.winner === PLAYER.BLUE) ||
+      (activeMode === "ai" && state.winner === PLAYER.BLUE);
 
     if (isVictory) {
       playSound("win");
       modalTitle.textContent = "Victoire ! 🏆";
-      modalMessage.textContent = `${winnerName} a gagné la partie.`;
+      modalMessage.textContent = `${winnerDisplay} a gagné la partie.`;
       modalIcon.innerHTML =
         '<i class="fa-solid fa-trophy text-amber-400 animate-bounce"></i>';
     } else {
       playSound("lose");
       modalTitle.textContent = "Défaite... 💀";
-      modalMessage.textContent = `${winnerName} a remporté la partie.`;
+      modalMessage.textContent = `${winnerDisplay} a remporté la partie.`;
       modalIcon.innerHTML =
         '<i class="fa-solid fa-face-frown text-rose-400"></i>';
     }
-    winModal.classList.remove("hidden");
+    modal.classList.remove("hidden");
   } else if (state.isRemoving) {
-    const curName =
-      state.currentPlayer === PLAYER.BLUE
-        ? "Bleu"
-        : activeMode === "ai"
-          ? "IA"
-          : "Rouge";
+    let curName = "";
+    if (activeMode === "local") {
+      if (state.currentPlayer === PLAYER.BLUE) {
+        curName =
+          currentTheme === colorThemes.emerald
+            ? "Vert"
+            : currentTheme === colorThemes.monochrome
+              ? "Noir"
+              : currentTheme === colorThemes.neon
+                ? "Cyan"
+                : "Bleu";
+      } else {
+        curName =
+          currentTheme === colorThemes.emerald
+            ? "Orange"
+            : currentTheme === colorThemes.monochrome
+              ? "Blanc"
+              : currentTheme === colorThemes.neon
+                ? "Rose"
+                : "Rouge";
+      }
+    } else if (activeMode === "ai") {
+      curName = state.currentPlayer === PLAYER.BLUE ? "Joueur" : "IA";
+    } else {
+      curName = state.currentPlayer === myRole ? myPseudo : opponentName;
+    }
+
     statusText.className = "text-base font-bold text-amber-400 animate-pulse";
     statusText.innerHTML = `<i class="fa-solid fa-bolt mr-1"></i> MOULIN ! (${curName}) : Retirez un pion adverse.`;
     phaseText.textContent = "Cliquez sur un pion ennemi à éliminer.";
   } else {
-    const curName =
-      state.currentPlayer === PLAYER.BLUE
-        ? "Joueur Bleu"
-        : activeMode === "ai"
-          ? "Ordinateur"
-          : "Joueur Rouge";
+    let curName = "";
+    if (activeMode === "local") {
+      if (state.currentPlayer === PLAYER.BLUE) {
+        if (currentTheme === colorThemes.emerald) curName = "Joueur Vert";
+        else if (currentTheme === colorThemes.monochrome)
+          curName = "Joueur Noir";
+        else if (currentTheme === colorThemes.neon) curName = "Joueur Cyan";
+        else curName = "Joueur Bleu";
+      } else {
+        if (currentTheme === colorThemes.emerald) curName = "Joueur Orange";
+        else if (currentTheme === colorThemes.monochrome)
+          curName = "Joueur Blanc";
+        else if (currentTheme === colorThemes.neon) curName = "Joueur Rose";
+        else curName = "Joueur Rouge";
+      }
+    } else if (activeMode === "ai") {
+      curName = state.currentPlayer === PLAYER.BLUE ? "Joueur" : "Ordinateur";
+    } else {
+      curName = state.currentPlayer === myRole ? myPseudo : opponentName;
+    }
+
     const isMyTurn =
       activeMode === "online" ? state.currentPlayer === myRole : true;
     const turnNotice =
@@ -886,9 +1081,9 @@ function playSound(type) {
       osc.stop(now + 0.08);
     } else if (type === "mill") {
       osc.type = "triangle";
-      osc.frequency.setValueAtTime(523.25, now); // Do
-      osc.frequency.setValueAtTime(659.25, now + 0.1); // Mi
-      osc.frequency.setValueAtTime(783.99, now + 0.2); // Sol
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.1);
+      osc.frequency.setValueAtTime(783.99, now + 0.2);
       gainNode.gain.setValueAtTime(0.15, now);
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       osc.start(now);
@@ -913,8 +1108,19 @@ function playSound(type) {
       osc.stop(now + 0.4);
     }
   } catch (e) {
-    // Sécurité au cas où le navigateur bloque l'audio
+    // Sécurité audio
   }
 }
+
+// Animation d'entrée au chargement de la page
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    const introScreen = document.getElementById("intro-screen");
+    if (introScreen) {
+      introScreen.classList.add("opacity-0", "pointer-events-none");
+      setTimeout(() => introScreen.remove(), 700);
+    }
+  }, 1200);
+});
 
 switchGameMode("local");
