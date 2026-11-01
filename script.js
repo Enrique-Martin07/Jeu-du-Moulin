@@ -128,8 +128,8 @@ function setAIDifficulty(level) {
       btn.className =
         "flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50";
     }
-    initGame();
   });
+  initGame();
 }
 
 function showWinModal(winnerName, isVictory) {
@@ -185,7 +185,7 @@ function switchGameMode(mode) {
     onlineBar.classList.add("hidden");
     invitePanel.classList.add("hidden");
     pseudoContainer.classList.add("hidden");
-    difficultyContainer.classList.remove("hidden"); // Visible en IA
+    difficultyContainer.classList.remove("hidden");
     chatCard.classList.add("hidden");
     enableChat(false);
     redLabel.textContent = "Ordinateur (IA)";
@@ -299,6 +299,8 @@ function setupConnectionHandlers() {
         ".",
     );
     document.getElementById("invite-panel").classList.add("hidden");
+
+    // Transmet notre pseudo directement à l'autre joueur dès l'ouverture de la connexion
     conn.send({ type: "PSEUDO", pseudo: myPseudo });
 
     if (myRole === PLAYER.BLUE) {
@@ -586,7 +588,6 @@ function triggerAIMove() {
     return;
   }
 
-  // --- PHASE 1 : PLACEMENT ---
   if (state.reserves[PLAYER.RED] > 0) {
     const empties = getEmptyNodes();
     let targetPos = null;
@@ -629,9 +630,7 @@ function triggerAIMove() {
     } else {
       switchTurn();
     }
-  }
-  // --- PHASE 2 & 3 : DÉPLACEMENT / VOL ---
-  else {
+  } else {
     const redPieces = getPieceIndices(PLAYER.RED);
     const isFlying = redPieces.length === 3;
     let moved = false;
@@ -1113,6 +1112,17 @@ function playSound(type) {
   }
 }
 
+// --- MISE À JOUR EN DIRECT DU PSEUDO EN LIGNE ---
+const pseudoInput = document.getElementById("player-pseudo");
+if (pseudoInput) {
+  pseudoInput.addEventListener("input", () => {
+    updateUI();
+    if (activeMode === "online" && conn && conn.open) {
+      conn.send({ type: "PSEUDO", pseudo: getMyPseudo() });
+    }
+  });
+}
+
 // Animation d'entrée au chargement de la page
 window.addEventListener("load", () => {
   setTimeout(() => {
@@ -1125,6 +1135,7 @@ window.addEventListener("load", () => {
 });
 
 switchGameMode("local");
+
 // --- ENREGISTREMENT DU SERVICE WORKER (MODE HORS LIGNE / PWA) ---
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
