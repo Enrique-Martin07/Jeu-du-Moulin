@@ -111,7 +111,7 @@ const modalIcon = document.getElementById("modalIcon");
 function getMyPseudo() {
   const input = document.getElementById("player-pseudo");
   return input && input.value.trim()
-    ? input.value.trim()
+    ? input.value.trim().substring(0, 15)
     : myRole === PLAYER.BLUE
       ? "Joueur Bleu"
       : "Joueur Rouge";
