@@ -314,13 +314,26 @@
           </form>
         </div>
 
-        <button
-          id="btn-restart"
-          onclick="initGame()"
-          class="w-full bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold py-2.5 rounded-xl border border-slate-600/50 transition flex items-center justify-center gap-2"
-        >
-          <i class="fa-solid fa-rotate-right"></i> Recommencer la partie
-        </button>
+        <!-- Boutons Annuler & Recommencer -->
+        <div class="flex gap-2">
+          <button
+            id="btn-undo"
+            onclick="undoMove()"
+            class="flex-1 bg-amber-600/80 hover:bg-amber-600 text-white text-xs font-semibold py-2.5 rounded-xl border border-amber-500/50 transition flex items-center justify-center gap-2 shadow"
+          >
+            <i class="fa-solid fa-rotate-left"></i> Annuler (<span
+              id="undo-count"
+              >3</span
+            >)
+          </button>
+          <button
+            id="btn-restart"
+            onclick="initGame()"
+            class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold py-2.5 rounded-xl border border-slate-600/50 transition flex items-center justify-center gap-2"
+          >
+            <i class="fa-solid fa-rotate-right"></i> Recommencer
+          </button>
+        </div>
       </div>
     </main>
 

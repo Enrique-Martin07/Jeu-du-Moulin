@@ -91,6 +91,10 @@ let conn = null;
 let pendingConn = null;
 let opponentName = "Adversaire";
 
+// --- Variables pour le système d'Annulation (Undo) ---
+let undoHistory = [];
+let undoCounts = { [PLAYER.BLUE]: 3, [PLAYER.RED]: 3 };
+
 const canvas = document.getElementById("board-canvas");
 const ctx = canvas.getContext("2d");
 const nodesContainer = document.getElementById("nodes-container");
@@ -300,7 +304,6 @@ function setupConnectionHandlers() {
     );
     document.getElementById("invite-panel").classList.add("hidden");
 
-    // Transmet notre pseudo directement à l'autre joueur dès l'ouverture de la connexion
     conn.send({ type: "PSEUDO", pseudo: myPseudo });
 
     if (myRole === PLAYER.BLUE) {
@@ -327,6 +330,14 @@ function setupConnectionHandlers() {
     if (data.type === "GAME_STATE") {
       state = data.state;
       updateUI();
+    }
+    if (data.type === "UNDO") {
+      undoCounts = data.undoCounts;
+      if (data.state) state = data.state;
+      updateUndoButtonUI();
+      updateUI();
+      flashStatus("L'adversaire a annulé un coup !");
+      return;
     }
     if (data.type === "CHAT") {
       addChatMessage(opponentName, data.message);
@@ -394,9 +405,90 @@ function initGame() {
   state.gameOver = false;
   state.winner = null;
 
+  undoHistory = [];
+  undoCounts = { [PLAYER.BLUE]: 3, [PLAYER.RED]: 3 };
+  updateUndoButtonUI();
+
   setupCanvas();
   renderNodes();
   updateUI();
+}
+
+// --- Fonction d'Annulation (Undo) ---
+function undoMove() {
+  if (state.gameOver) return;
+
+  if (activeMode === "online" && state.currentPlayer !== myRole) {
+    flashStatus("Ce n'est pas votre tour d'annuler !");
+    return;
+  }
+
+  const playerToUndo = state.currentPlayer;
+
+  if (undoCounts[playerToUndo] <= 0) {
+    flashStatus("Plus d'annulations disponibles (3/3 utilisées) !");
+    return;
+  }
+
+  if (undoHistory.length === 0) {
+    flashStatus("Aucun coup à annuler pour le moment.");
+    return;
+  }
+
+  if (activeMode === "ai" && undoHistory.length >= 2) {
+    undoHistory.pop();
+    const previousState = undoHistory.pop();
+    state = previousState.state;
+  } else {
+    const previousRecord = undoHistory.pop();
+    state = previousRecord.state;
+  }
+
+  undoCounts[playerToUndo]--;
+  updateUndoButtonUI();
+  playSound("click");
+  updateUI();
+  flashStatus("Coup annulé avec succès !");
+
+  if (activeMode === "online" && conn && conn.open) {
+    broadcastGameState();
+    conn.send({ type: "UNDO", undoCounts: undoCounts, state: state });
+  }
+}
+
+function updateUndoButtonUI() {
+  const undoCountEl = document.getElementById("undo-count");
+  const btnUndo = document.getElementById("btn-undo");
+
+  if (undoCountEl) {
+    const currentP = activeMode === "online" ? myRole : state.currentPlayer;
+    undoCountEl.textContent =
+      undoCounts[currentP] !== undefined ? undoCounts[currentP] : 3;
+  }
+
+  if (btnUndo) {
+    btnUndo.className =
+      "flex-1 text-xs font-semibold py-2.5 rounded-xl border-2 transition flex items-center justify-center gap-2 shadow";
+    const activePlayerTheme =
+      state.currentPlayer === PLAYER.BLUE
+        ? currentTheme.player1
+        : currentTheme.player2;
+
+    // Adaptation spéciale pour le mode monochrome pour garder une parfaite visibilité
+    if (currentTheme === colorThemes.monochrome) {
+      btnUndo.classList.add(
+        "bg-slate-800",
+        "border-slate-400",
+        "text-slate-200",
+      );
+    } else {
+      btnUndo.classList.add(
+        activePlayerTheme.bg,
+        activePlayerTheme.border,
+        "text-white",
+      );
+    }
+  }
 }
 
 function setupCanvas() {
@@ -459,6 +551,11 @@ function handleNodeClick(index) {
   }
 
   playSound("click");
+
+  undoHistory.push({
+    state: JSON.parse(JSON.stringify(state)),
+    player: state.currentPlayer,
+  });
 
   processMove(index);
   broadcastGameState();
@@ -554,6 +651,7 @@ function switchTurn() {
   }
 
   updateUI();
+  updateUndoButtonUI();
 
   if (
     activeMode === "ai" &&
@@ -650,7 +748,7 @@ function triggerAIMove() {
             return;
           }
           state.board[p] = PLAYER.RED;
-          state.board[target] = PLAYER.NONE;
+          state.board[target] = PLAYER.RED; // Corrigé ici (réinitialisation correcte)
         }
       }
     }
@@ -798,6 +896,7 @@ function changeTheme(themeName) {
     cardRed.classList.remove(...allBorders);
 
     updateUI();
+    updateUndoButtonUI();
   }
 }
 
