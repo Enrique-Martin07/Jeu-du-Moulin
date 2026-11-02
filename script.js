@@ -840,7 +840,7 @@ function triggerAIMove() {
     return;
   }
 
-  // Niveau Alpha-Beta 🧠 (Expert)
+  // Niveau Alpha-Beta 🧠 (Expert Amélioré)
   if (aiDifficulty === "alphabeta") {
     const bestMove = getBestAlphaBetaMove(state, 3);
     if (bestMove) {
@@ -961,11 +961,20 @@ function triggerAIMove() {
   updateUI();
 }
 
-// --- ALGORITHME MINIMAX / ALPHA-BETA ---
+// --- ALGORITHME MINIMAX / ALPHA-BETA OPTIMISÉ ---
 function getBestAlphaBetaMove(currentState, depth) {
   let bestScore = -Infinity;
   let bestMove = null;
   const possibleMoves = getAllPossibleMoves(currentState, PLAYER.RED);
+
+  // Prioriser les coups qui créent un moulin dès le début de l'évaluation
+  possibleMoves.sort((a, b) => {
+    let testStateA = simulateMove(currentState, a, PLAYER.RED);
+    let testStateB = simulateMove(currentState, b, PLAYER.RED);
+    let aMill = checkMillCreated(a.to, PLAYER.RED) ? 1 : 0;
+    let bMill = checkMillCreated(b.to, PLAYER.RED) ? 1 : 0;
+    return bMill - aMill;
+  });
 
   for (let move of possibleMoves) {
     let nextState = simulateMove(currentState, move, PLAYER.RED);
@@ -1051,13 +1060,29 @@ function simulateMove(st, move, player) {
   return newState;
 }
 
+// --- FONCTION D'ÉVALUATION STRATÉGIQUE AMÉLIORÉE ---
 function evaluateBoard(st) {
   const redPieces = st.board.filter((v) => v === PLAYER.RED).length;
   const bluePieces = st.board.filter((v) => v === PLAYER.BLUE).length;
   const redRes = st.reserves[PLAYER.RED];
   const blueRes = st.reserves[PLAYER.BLUE];
 
-  let score = redPieces + redRes * 1.5 - (bluePieces + blueRes * 1.5);
+  // Compter les moulins actuels pour chaque joueur
+  let redMills = 0;
+  let blueMills = 0;
+  const mills = getActiveMills();
+
+  mills.forEach((mill) => {
+    if (mill.every((i) => st.board[i] === PLAYER.RED)) redMills++;
+    if (mill.every((i) => st.board[i] === PLAYER.BLUE)) blueMills++;
+  });
+
+  // Score affiné : Pions + Réserves + Bonus très fort pour chaque Moulin formé
+  let score =
+    redPieces +
+    redRes * 1.5 +
+    redMills * 6 -
+    (bluePieces + blueRes * 1.5 + blueMills * 6);
   return score;
 }
 
