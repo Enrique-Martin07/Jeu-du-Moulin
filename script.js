@@ -125,7 +125,7 @@ const MILLS_6 = [
   [1, 9],
   [3, 11],
   [5, 13],
-  [7, 15], // Remarque: dans le 6 pions, les liaisons médianes font relier 1->9, 3->11, 5->13, 7->15
+  [7, 15],
 ];
 
 let currentGameVariant = "9"; // '9' ou '6'
@@ -151,7 +151,7 @@ let state = {
 };
 
 let activeMode = "local"; // 'local', 'ai', 'online'
-let aiDifficulty = "easy"; // 'easy', 'medium', 'hard'
+let aiDifficulty = "easy"; // 'easy', 'medium', 'hard', 'alphabeta'
 let myRole = PLAYER.BLUE;
 let peer = null;
 let conn = null;
@@ -201,15 +201,17 @@ function getMyPseudo() {
 }
 
 function setAIDifficulty(level) {
-  aiDifficulty = level;
-  ["easy", "medium", "hard"].forEach((lvl) => {
+  aiDifficulty = level; // 'easy', 'medium', 'hard', 'alphabeta'
+  ["easy", "medium", "hard", "alphabeta"].forEach((lvl) => {
     const btn = document.getElementById(`btn-diff-${lvl}`);
-    if (lvl === level) {
-      btn.className =
-        "flex-1 py-1.5 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow";
-    } else {
-      btn.className =
-        "flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50";
+    if (btn) {
+      if (lvl === level) {
+        btn.className =
+          "py-1.5 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow";
+      } else {
+        btn.className =
+          "py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50";
+      }
     }
   });
   initGame();
@@ -813,6 +815,7 @@ function switchTurn() {
   }
 }
 
+// --- CERVEAU DE L'IA (Niveaux Easy, Medium, Hard, Alpha-Beta) ---
 function triggerAIMove() {
   if (state.isRemoving) {
     const opponentPieces = getPieceIndices(PLAYER.BLUE);
@@ -837,6 +840,35 @@ function triggerAIMove() {
     return;
   }
 
+  // Niveau Alpha-Beta 🧠 (Expert)
+  if (aiDifficulty === "alphabeta") {
+    const bestMove = getBestAlphaBetaMove(state, 3);
+    if (bestMove) {
+      if (state.reserves[PLAYER.RED] > 0) {
+        state.board[bestMove.to] = PLAYER.RED;
+        state.reserves[PLAYER.RED]--;
+      } else {
+        state.board[bestMove.to] = PLAYER.RED;
+        if (bestMove.from !== null) {
+          state.board[bestMove.from] = PLAYER.NONE;
+        }
+      }
+
+      if (checkMillCreated(bestMove.to, PLAYER.RED)) {
+        state.isRemoving = true;
+        playSound("mill");
+        updateUI();
+        setTimeout(triggerAIMove, 400);
+        return;
+      } else {
+        switchTurn();
+      }
+      updateUI();
+      return;
+    }
+  }
+
+  // Logique standard pour Facile, Moyen, Difficile
   if (state.reserves[PLAYER.RED] > 0) {
     const empties = getEmptyNodes();
     let targetPos = null;
@@ -852,7 +884,10 @@ function triggerAIMove() {
         state.board[pos] = PLAYER.NONE;
       }
 
-      if (targetPos === null && aiDifficulty === "hard") {
+      if (
+        targetPos === null &&
+        (aiDifficulty === "hard" || aiDifficulty === "medium")
+      ) {
         for (let pos of empties) {
           state.board[pos] = PLAYER.BLUE;
           if (checkMillCreated(pos, PLAYER.BLUE)) {
@@ -924,6 +959,106 @@ function triggerAIMove() {
     }
   }
   updateUI();
+}
+
+// --- ALGORITHME MINIMAX / ALPHA-BETA ---
+function getBestAlphaBetaMove(currentState, depth) {
+  let bestScore = -Infinity;
+  let bestMove = null;
+  const possibleMoves = getAllPossibleMoves(currentState, PLAYER.RED);
+
+  for (let move of possibleMoves) {
+    let nextState = simulateMove(currentState, move, PLAYER.RED);
+    let score = alphaBeta(nextState, depth - 1, -Infinity, Infinity, false);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = move;
+    }
+  }
+  return bestMove || possibleMoves[0];
+}
+
+function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
+  if (depth === 0 || nodeState.gameOver) {
+    return evaluateBoard(nodeState);
+  }
+
+  if (maximizingPlayer) {
+    let maxEval = -Infinity;
+    const moves = getAllPossibleMoves(nodeState, PLAYER.RED);
+    for (let move of moves) {
+      let nextState = simulateMove(nodeState, move, PLAYER.RED);
+      let evaluation = alphaBeta(nextState, depth - 1, alpha, beta, false);
+      maxEval = Math.max(maxEval, evaluation);
+      alpha = Math.max(alpha, evaluation);
+      if (beta <= alpha) break;
+    }
+    return maxEval;
+  } else {
+    let minEval = Infinity;
+    const moves = getAllPossibleMoves(nodeState, PLAYER.BLUE);
+    for (let move of moves) {
+      let nextState = simulateMove(nodeState, move, PLAYER.BLUE);
+      let evaluation = alphaBeta(nextState, depth - 1, alpha, beta, true);
+      minEval = Math.min(minEval, evaluation);
+      beta = Math.min(beta, evaluation);
+      if (beta <= alpha) break;
+    }
+    return minEval;
+  }
+}
+
+function getAllPossibleMoves(st, player) {
+  let moves = [];
+  const size = currentGameVariant === "6" ? 16 : 24;
+
+  if (st.reserves[player] > 0) {
+    for (let i = 0; i < size; i++) {
+      if (st.board[i] === PLAYER.NONE) {
+        moves.push({ from: null, to: i });
+      }
+    }
+  } else {
+    const pieces = st.board
+      .map((val, idx) => (val === player ? idx : null))
+      .filter((val) => val !== null);
+    const isFlying = pieces.length === 3;
+    const adjacency = currentGameVariant === "6" ? ADJACENCY_6 : ADJACENCY_9;
+
+    for (let p of pieces) {
+      const targets = isFlying
+        ? st.board
+            .map((val, idx) => (val === PLAYER.NONE ? idx : null))
+            .filter((val) => val !== null)
+        : adjacency[p].filter((adj) => st.board[adj] === PLAYER.NONE);
+
+      for (let t of targets) {
+        moves.push({ from: p, to: t });
+      }
+    }
+  }
+  return moves;
+}
+
+function simulateMove(st, move, player) {
+  let newState = JSON.parse(JSON.stringify(st));
+  if (move.from !== null) {
+    newState.board[move.from] = PLAYER.NONE;
+  } else {
+    newState.reserves[player]--;
+  }
+  newState.board[move.to] = player;
+  return newState;
+}
+
+function evaluateBoard(st) {
+  const redPieces = st.board.filter((v) => v === PLAYER.RED).length;
+  const bluePieces = st.board.filter((v) => v === PLAYER.BLUE).length;
+  const redRes = st.reserves[PLAYER.RED];
+  const blueRes = st.reserves[PLAYER.BLUE];
+
+  let score = redPieces + redRes * 1.5 - (bluePieces + blueRes * 1.5);
+  return score;
 }
 
 function canRemovePiece(index, opponent) {
@@ -1087,7 +1222,7 @@ function updateUI() {
     }
   } else {
     blueLabelEl.textContent = "Joueur";
-    redLabelEl.textContent = "Ordinateur (IA)";
+    redLabelEl.textContent = "Alpha-Beta (IA)";
   }
 
   if (state.currentPlayer === PLAYER.BLUE) {
@@ -1125,7 +1260,7 @@ function updateUI() {
     if (state.winner === PLAYER.RED) {
       winnerDisplay =
         activeMode === "ai"
-          ? "L'Ordinateur"
+          ? "Alpha-Beta (IA)"
           : activeMode === "online"
             ? opponentName
             : currentTheme === colorThemes.emerald
@@ -1192,7 +1327,7 @@ function updateUI() {
                 : "Rouge";
       }
     } else if (activeMode === "ai") {
-      curName = state.currentPlayer === PLAYER.BLUE ? "Joueur" : "IA";
+      curName = state.currentPlayer === PLAYER.BLUE ? "Joueur" : "Alpha-Beta";
     } else {
       curName = state.currentPlayer === myRole ? myPseudo : opponentName;
     }
@@ -1217,7 +1352,8 @@ function updateUI() {
         else curName = "Joueur Rouge";
       }
     } else if (activeMode === "ai") {
-      curName = state.currentPlayer === PLAYER.BLUE ? "Joueur" : "Ordinateur";
+      curName =
+        state.currentPlayer === PLAYER.BLUE ? "Joueur" : "Alpha-Beta (IA)";
     } else {
       curName = state.currentPlayer === myRole ? myPseudo : opponentName;
     }

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jeu du Moulin - Moderne (Multi-Variantes)</title>
+    <title>Jeu du Moulin - Alpha-Beta Edition</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -38,7 +38,7 @@
       >
         JEU DU MOULIN
       </h1>
-      <div class="text-xs text-slate-400 mt-1">Version 0.3.0</div>
+      <div class="text-xs text-slate-400 mt-1">Version 0.3.1 (Alpha-Beta)</div>
     </header>
 
     <!-- Main Container -->
@@ -362,7 +362,7 @@
           </select>
         </div>
 
-        <!-- Difficulté IA -->
+        <!-- Difficulté IA (4 Niveaux) -->
         <div
           id="difficulty-container"
           class="mb-4 bg-slate-800/50 border border-slate-800 p-3 rounded-xl hidden"
@@ -371,27 +371,34 @@
             <i class="fa-solid fa-gauge-high text-sky-400 mr-1"></i> Niveau de
             difficulté :
           </label>
-          <div class="flex gap-2">
+          <div class="grid grid-cols-2 gap-2">
             <button
               id="btn-diff-easy"
               onclick="setAIDifficulty('easy')"
-              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow"
+              class="py-1.5 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow"
             >
               Facile
             </button>
             <button
               id="btn-diff-medium"
               onclick="setAIDifficulty('medium')"
-              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+              class="py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
             >
               Moyen
             </button>
             <button
               id="btn-diff-hard"
               onclick="setAIDifficulty('hard')"
-              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+              class="py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
             >
               Difficile
+            </button>
+            <button
+              id="btn-diff-alphabeta"
+              onclick="setAIDifficulty('alphabeta')"
+              class="py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+            >
+              Alpha-Beta 🧠
             </button>
           </div>
         </div>
