@@ -816,7 +816,7 @@ function switchTurn() {
 }
 
 // =========================================================================
-// --- CERVEAU DU MOTEUR D'IA GOD-MODE (ALPHA-BETA ULTIME) ---
+// --- CERVEAU DU MOTEUR D'IA OPTIMISÉ (ALPHA-BETA FLUIDE) ---
 // =========================================================================
 
 function triggerAIMove() {
@@ -843,12 +843,9 @@ function triggerAIMove() {
     return;
   }
 
-  // --- NIVEAU ALPHA-BETA GOD MODE 🧠 ---
+  // --- NIVEAU ALPHA-BETA OPTIMISÉ (Profondeur 3 instantanée) ---
   if (aiDifficulty === "alphabeta") {
-    const totalPiecesOnBoard =
-      getPieceCountOnBoard(PLAYER.RED) + getPieceCountOnBoard(PLAYER.BLUE);
-    // Profondeur 4 en début de partie, jusqu'à 5 ou 6 en fin de partie pour calcul d'échec et mat absolu !
-    const depth = totalPiecesOnBoard <= 10 ? 5 : 4;
+    const depth = 3; // Profondeur idéale pour un calcul ultra-rapide et sans gel du navigateur
 
     const bestMove = getBestAlphaBetaMove(state, depth);
     if (bestMove) {
@@ -969,13 +966,13 @@ function triggerAIMove() {
   updateUI();
 }
 
-// --- RECHERCHE MINIMAX / ALPHA-BETA GOD MODE ---
+// --- RECHERCHE MINIMAX / ALPHA-BETA ---
 function getBestAlphaBetaMove(currentState, depth) {
   let bestScore = -Infinity;
   let bestMove = null;
   const possibleMoves = getAllPossibleMoves(currentState, PLAYER.RED);
 
-  // TRI INTELLIGENT DES COUPS : Priorise la fermeture des moulins et les captures
+  // TRI DES COUPS : Priorise la fermeture des moulins
   possibleMoves.sort((a, b) => {
     let aMill = checkMillCreated(a.to, PLAYER.RED) ? 10 : 0;
     let bMill = checkMillCreated(b.to, PLAYER.RED) ? 10 : 0;
@@ -1026,7 +1023,7 @@ function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
   }
 }
 
-// --- SIMULATION AVEC SIMULATION DE CAPTURE ---
+// --- SIMULATION AVEC CAPTURE INTÉGRÉE ---
 function simulateMove(st, move, player) {
   let newState = JSON.parse(JSON.stringify(st));
   if (move.from !== null) {
@@ -1036,7 +1033,6 @@ function simulateMove(st, move, player) {
   }
   newState.board[move.to] = player;
 
-  // Si le coup crée un moulin, simuler la suppression du meilleur pion adverse
   if (checkMillCreatedInState(newState, move.to, player)) {
     const opponent = player === PLAYER.RED ? PLAYER.BLUE : PLAYER.RED;
     const opponentPieces = newState.board
@@ -1044,7 +1040,6 @@ function simulateMove(st, move, player) {
       .filter((val) => val !== null);
 
     if (opponentPieces.length > 0) {
-      // Retirer en priorité un pion qui n'est pas dans un moulin
       const nonMillPieces = opponentPieces.filter(
         (idx) => !isPartOfMillInState(newState, idx, opponent),
       );
@@ -1072,7 +1067,6 @@ function isPartOfMillInState(st, index, player) {
   return checkMillCreatedInState(st, index, player);
 }
 
-// --- DÉTECTION DES DOUBLE MENACES (FOURCHES DE MOULIN) ---
 function countPotentialMills(st, player) {
   let count = 0;
   const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
@@ -1086,18 +1080,16 @@ function countPotentialMills(st, player) {
   return count;
 }
 
-// --- EVALUATION TACTIQUE GOD MODE (3000+ ELO) ---
+// --- ÉVALUATION TACTIQUE ---
 function evaluateBoardGodMode(st) {
   const redOnBoard = st.board.filter((v) => v === PLAYER.RED).length;
   const blueOnBoard = st.board.filter((v) => v === PLAYER.BLUE).length;
   const redRes = st.reserves[PLAYER.RED];
   const blueRes = st.reserves[PLAYER.BLUE];
 
-  // Condition d'échec et mat absolu
   if (blueRes === 0 && blueOnBoard < 3) return 10000;
   if (redRes === 0 && redOnBoard < 3) return -10000;
 
-  // Nombre de moulins fermés
   let redMills = 0;
   let blueMills = 0;
   const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
@@ -1106,16 +1098,12 @@ function evaluateBoardGodMode(st) {
     if (mill.every((i) => st.board[i] === PLAYER.BLUE)) blueMills++;
   });
 
-  // Nombre de menaces de moulin (2 sur 3)
   const redPot = countPotentialMills(st, PLAYER.RED);
   const bluePot = countPotentialMills(st, PLAYER.BLUE);
 
-  // Nombre de mouvements possibles (Mobilité / Asphyxie)
   const redMoves = getAllPossibleMoves(st, PLAYER.RED).length;
   const blueMoves = getAllPossibleMoves(st, PLAYER.BLUE).length;
 
-  // Formule mathématique destructrice :
-  // Moulins fermés (très haut score), Fourches/Menaces (gros bonus), Différentiel de pièces et Mobilité
   let score =
     redOnBoard * 20 +
     redRes * 18 +
