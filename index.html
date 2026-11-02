@@ -39,114 +39,50 @@
         JEU DU MOULIN
       </h1>
       <div class="text-xs text-slate-400 mt-1">Version 0.2.5</div>
-      <p class="text-xs md:text-sm text-slate-400 mt-1">
-        Choisissez votre mode et jouez directement dans votre navigateur !
-      </p>
     </header>
 
     <!-- Main Container -->
     <main
-      class="max-w-4xl mx-auto w-full flex-grow flex flex-col lg:flex-row gap-6 items-start justify-center"
+      class="max-w-4xl mx-auto w-full flex-grow flex flex-col lg:flex-row gap-4 items-start justify-center"
     >
       <!-- Left Column: Controls & Game Board -->
       <div class="w-full lg:w-2/3 flex flex-col justify-center">
-        <!-- Mode Selector Bar -->
-        <div
-          class="bg-slate-800/80 border border-slate-700 p-2 rounded-xl mb-3 flex items-center justify-around gap-1 shadow-lg"
-        >
-          <button
-            id="btn-mode-ai"
-            onclick="switchGameMode('ai')"
-            class="flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center justify-center gap-1.5"
+        <!-- Mode Selector & Settings Bar (Compact sur mobile) -->
+        <div class="flex items-center gap-2 mb-3">
+          <div
+            class="bg-slate-800/80 border border-slate-700 p-1.5 rounded-xl flex-grow flex items-center justify-around gap-1 shadow-lg"
           >
-            <i class="fa-solid fa-robot"></i> vs IA
-          </button>
-          <button
-            id="btn-mode-local"
-            onclick="switchGameMode('local')"
-            class="flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center justify-center gap-1.5"
-          >
-            <i class="fa-solid fa-users"></i> Local
-          </button>
-          <button
-            id="btn-mode-online"
-            onclick="switchGameMode('online')"
-            class="flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center justify-center gap-1.5"
-          >
-            <i class="fa-solid fa-globe"></i> En Ligne
-          </button>
-        </div>
-
-        <!-- Sélecteur de thèmes de pions -->
-        <div class="mb-4">
-          <label class="block text-slate-300 text-xs font-semibold mb-1"
-            >Thème des pions :</label
-          >
-          <select
-            id="colorTheme"
-            onchange="changeTheme(this.value)"
-            class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
-          >
-            <option value="classic">Bleu & Rouge (Classique)</option>
-            <option value="emerald">Vert & Orange</option>
-            <option value="monochrome">Noir & Blanc</option>
-            <option value="neon">Cyan & Rose Néon</option>
-          </select>
-        </div>
-
-        <!-- Sélecteur de difficulté (Visible uniquement en mode IA) -->
-        <div
-          id="difficulty-container"
-          class="mb-4 bg-slate-800/80 border border-slate-700 p-3 rounded-xl shadow-lg hidden"
-        >
-          <label class="block text-slate-300 text-xs font-semibold mb-2">
-            <i class="fa-solid fa-gauge-high text-sky-400 mr-1"></i> Niveau de
-            difficulté :
-          </label>
-          <div class="flex gap-2">
             <button
-              id="btn-diff-easy"
-              onclick="setAIDifficulty('easy')"
-              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow"
+              id="btn-mode-ai"
+              onclick="switchGameMode('ai')"
+              class="flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center justify-center gap-1.5"
             >
-              Facile
+              <i class="fa-solid fa-robot"></i> vs IA
             </button>
             <button
-              id="btn-diff-medium"
-              onclick="setAIDifficulty('medium')"
-              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+              id="btn-mode-local"
+              onclick="switchGameMode('local')"
+              class="flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center justify-center gap-1.5"
             >
-              Moyen
+              <i class="fa-solid fa-users"></i> Local
             </button>
             <button
-              id="btn-diff-hard"
-              onclick="setAIDifficulty('hard')"
-              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+              id="btn-mode-online"
+              onclick="switchGameMode('online')"
+              class="flex-1 py-2 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50 flex items-center justify-center gap-1.5"
             >
-              Difficile
+              <i class="fa-solid fa-globe"></i> En Ligne
             </button>
           </div>
-        </div>
 
-        <!-- Sélecteur de pseudo (Visible uniquement en mode En Ligne) -->
-        <div
-          id="pseudo-container"
-          class="mb-4 bg-slate-800/80 border border-slate-700 p-3 rounded-xl shadow-lg hidden"
-        >
-          <label
-            class="block text-slate-300 text-xs font-semibold mb-1"
-            for="player-pseudo"
+          <!-- Bouton Ouvrir Paramètres (Escamotable) -->
+          <button
+            onclick="toggleSettingsModal()"
+            title="Paramètres & Options"
+            class="bg-slate-800/90 hover:bg-slate-700 text-sky-400 border border-slate-700 px-3.5 py-3 rounded-xl shadow-lg transition flex items-center justify-center"
           >
-            <i class="fa-solid fa-user text-sky-400 mr-1"></i> Mon Pseudo :
-          </label>
-          <input
-            type="text"
-            id="player-pseudo"
-            placeholder="Entre ton pseudo..."
-            value="Joueur"
-            maxlength="15"
-            class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
-          />
+            <i class="fa-solid fa-gear text-base"></i>
+          </button>
         </div>
 
         <!-- Connection & ID Bar (Hidden outside Online mode) -->
@@ -264,55 +200,12 @@
 
         <!-- Game Board Area -->
         <div
-          class="board-container bg-slate-900/80 border border-slate-700/60 rounded-2xl p-4 shadow-2xl overflow-hidden"
+          class="board-container bg-slate-900/80 border border-slate-700/60 rounded-2xl p-4 shadow-2xl overflow-hidden mb-3"
         >
           <canvas id="board-canvas" class="board-canvas"></canvas>
           <div id="nodes-container" class="w-full h-full relative">
             <!-- 24 Board Nodes -->
           </div>
-        </div>
-      </div>
-
-      <!-- Right Column: Chat & Settings -->
-      <div id="right-column" class="w-full lg:w-1/3 flex flex-col gap-3">
-        <div
-          id="chat-card"
-          class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex flex-col h-[380px] lg:h-[480px] shadow-lg hidden"
-        >
-          <h2
-            class="text-sm font-bold text-slate-300 border-b border-slate-700/80 pb-2 mb-2 flex items-center gap-2"
-          >
-            <i class="fa-solid fa-comments text-sky-400"></i> Chat &
-            Informations
-          </h2>
-          <div
-            id="chat-messages"
-            class="flex-grow overflow-y-auto space-y-2 pr-1 text-xs mb-2"
-          >
-            <div class="text-slate-400 text-center py-2">
-              Sélectionnez un mode pour commencer à jouer !
-            </div>
-          </div>
-          <form
-            id="chat-form"
-            class="flex gap-2 border-t border-slate-700/80 pt-2"
-          >
-            <input
-              type="text"
-              id="chat-input"
-              placeholder="Message (Mode en ligne)..."
-              disabled
-              class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 flex-grow text-white focus:outline-none focus:border-sky-500 transition"
-            />
-            <button
-              type="submit"
-              id="chat-send-btn"
-              disabled
-              class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition"
-            >
-              <i class="fa-solid fa-paper-plane"></i>
-            </button>
-          </form>
         </div>
 
         <!-- Boutons Annuler & Recommencer -->
@@ -336,7 +229,152 @@
           </button>
         </div>
       </div>
+
+      <!-- Right Column: Chat (Visible uniquement en mode en ligne) -->
+      <div id="right-column" class="w-full lg:w-1/3 flex flex-col gap-3">
+        <div
+          id="chat-card"
+          class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex flex-col h-[320px] lg:h-[480px] shadow-lg hidden"
+        >
+          <h2
+            class="text-sm font-bold text-slate-300 border-b border-slate-700/80 pb-2 mb-2 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-comments text-sky-400"></i> Chat de la partie
+          </h2>
+          <div
+            id="chat-messages"
+            class="flex-grow overflow-y-auto space-y-2 pr-1 text-xs mb-2"
+          >
+            <div class="text-slate-400 text-center py-2">
+              Discutez avec votre adversaire en ligne !
+            </div>
+          </div>
+          <form
+            id="chat-form"
+            class="flex gap-2 border-t border-slate-700/80 pt-2"
+          >
+            <input
+              type="text"
+              id="chat-input"
+              placeholder="Votre message..."
+              disabled
+              class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 flex-grow text-white focus:outline-none focus:border-sky-500 transition"
+            />
+            <button
+              type="submit"
+              id="chat-send-btn"
+              disabled
+              class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition"
+            >
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </form>
+        </div>
+      </div>
     </main>
+
+    <!-- FENÊTRE MODALE DES PARAMÈTRES (ESCAMOTABLE) -->
+    <div
+      id="settings-modal"
+      class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden"
+    >
+      <div
+        class="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative transform transition-all"
+      >
+        <div
+          class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3"
+        >
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-gear text-sky-400"></i> Paramètres du Jeu
+          </h3>
+          <button
+            onclick="toggleSettingsModal()"
+            class="text-slate-400 hover:text-white text-sm p-1"
+          >
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <!-- Thème des pions -->
+        <div class="mb-4">
+          <label class="block text-slate-300 text-xs font-semibold mb-1"
+            >Thème des pions :</label
+          >
+          <select
+            id="colorTheme"
+            onchange="changeTheme(this.value)"
+            class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+          >
+            <option value="classic">Bleu & Rouge (Classique)</option>
+            <option value="emerald">Vert & Orange</option>
+            <option value="monochrome">Noir & Blanc</option>
+            <option value="neon">Cyan & Rose Néon</option>
+          </select>
+        </div>
+
+        <!-- Sélecteur de difficulté (Visible uniquement en mode IA) -->
+        <div
+          id="difficulty-container"
+          class="mb-4 bg-slate-800/50 border border-slate-800 p-3 rounded-xl hidden"
+        >
+          <label class="block text-slate-300 text-xs font-semibold mb-2">
+            <i class="fa-solid fa-gauge-high text-sky-400 mr-1"></i> Niveau de
+            difficulté :
+          </label>
+          <div class="flex gap-2">
+            <button
+              id="btn-diff-easy"
+              onclick="setAIDifficulty('easy')"
+              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition bg-sky-600 text-white shadow"
+            >
+              Facile
+            </button>
+            <button
+              id="btn-diff-medium"
+              onclick="setAIDifficulty('medium')"
+              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+            >
+              Moyen
+            </button>
+            <button
+              id="btn-diff-hard"
+              onclick="setAIDifficulty('hard')"
+              class="flex-1 py-1.5 text-xs font-bold rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-700/50"
+            >
+              Difficile
+            </button>
+          </div>
+        </div>
+
+        <!-- Sélecteur de pseudo (Visible uniquement en mode En Ligne) -->
+        <div
+          id="pseudo-container"
+          class="mb-4 bg-slate-800/50 border border-slate-800 p-3 rounded-xl hidden"
+        >
+          <label
+            class="block text-slate-300 text-xs font-semibold mb-1"
+            for="player-pseudo"
+          >
+            <i class="fa-solid fa-user text-sky-400 mr-1"></i> Mon Pseudo :
+          </label>
+          <input
+            type="text"
+            id="player-pseudo"
+            placeholder="Entre ton pseudo..."
+            value="Joueur"
+            maxlength="15"
+            class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
+          />
+        </div>
+
+        <button
+          onclick="toggleSettingsModal()"
+          class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow"
+        >
+          Valider & Fermer
+        </button>
+      </div>
+    </div>
 
     <!-- Modal Invitation Popup -->
     <div
@@ -383,19 +421,15 @@
         class="bg-slate-900 border border-slate-700 rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl text-center transform scale-95 transition-transform duration-300"
         id="modalContent"
       >
-        <!-- Icône Trophée / Statut -->
         <div id="modalIcon" class="text-5xl mb-4 text-amber-400">
           <i class="fa-solid fa-trophy"></i>
         </div>
-        <!-- Titre -->
         <h2 id="modalTitle" class="text-2xl font-bold text-white mb-2">
           Victoire !
         </h2>
-        <!-- Message -->
         <p id="modalMessage" class="text-slate-300 mb-6">
           Le Joueur Bleu a remporté la partie.
         </p>
-        <!-- Bouton Rejouer -->
         <button
           onclick="resetGame()"
           class="w-full bg-sky-600 hover:bg-sky-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 cursor-pointer"
@@ -404,6 +438,14 @@
         </button>
       </div>
     </div>
+
+    <!-- Script pour la modale paramètres -->
+    <script>
+      function toggleSettingsModal() {
+        const modal = document.getElementById("settings-modal");
+        modal.classList.toggle("hidden");
+      }
+    </script>
 
     <!-- Game Engine Script -->
     <script src="script.js"></script>
