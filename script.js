@@ -1,6 +1,7 @@
 const PLAYER = { NONE: 0, BLUE: 1, RED: 2 };
 
-const NODE_POSITIONS = [
+// --- CONFIGURATION DU PLATEAU À 9 PIONS (24 nœuds) ---
+const NODE_POSITIONS_9 = [
   { x: 10, y: 10 },
   { x: 50, y: 10 },
   { x: 90, y: 10 },
@@ -27,7 +28,7 @@ const NODE_POSITIONS = [
   { x: 36, y: 50 },
 ];
 
-const ADJACENCY = [
+const ADJACENCY_9 = [
   [1, 7],
   [0, 2, 9],
   [1, 3],
@@ -54,7 +55,7 @@ const ADJACENCY = [
   [15, 16, 22],
 ];
 
-const MILLS = [
+const MILLS_9 = [
   [0, 1, 2],
   [2, 3, 4],
   [4, 5, 6],
@@ -72,6 +73,72 @@ const MILLS = [
   [5, 13, 21],
   [7, 15, 23],
 ];
+
+// --- CONFIGURATION DU PLATEAU À 6 PIONS (16 nœuds) ---
+const NODE_POSITIONS_6 = [
+  { x: 10, y: 10 },
+  { x: 50, y: 10 },
+  { x: 90, y: 10 },
+  { x: 90, y: 50 },
+  { x: 90, y: 90 },
+  { x: 50, y: 90 },
+  { x: 10, y: 90 },
+  { x: 10, y: 50 },
+  { x: 30, y: 30 },
+  { x: 50, y: 30 },
+  { x: 70, y: 30 },
+  { x: 70, y: 50 },
+  { x: 70, y: 70 },
+  { x: 50, y: 70 },
+  { x: 30, y: 70 },
+  { x: 30, y: 50 },
+];
+
+const ADJACENCY_6 = [
+  [1, 7],
+  [0, 2, 9],
+  [1, 3],
+  [2, 4, 11],
+  [3, 5],
+  [4, 6, 13],
+  [5, 7],
+  [0, 6, 15],
+  [9, 15],
+  [1, 8, 10],
+  [9, 11],
+  [3, 10, 12],
+  [11, 13],
+  [5, 12, 14],
+  [13, 15],
+  [7, 8, 14],
+];
+
+const MILLS_6 = [
+  [0, 1, 2],
+  [2, 3, 4],
+  [4, 5, 6],
+  [6, 7, 0],
+  [8, 9, 10],
+  [10, 11, 12],
+  [12, 13, 14],
+  [14, 15, 8],
+  [1, 9],
+  [3, 11],
+  [5, 13],
+  [7, 15], // Remarque: dans le 6 pions, les liaisons médianes font relier 1->9, 3->11, 5->13, 7->15
+];
+
+let currentGameVariant = "9"; // '9' ou '6'
+
+function getActiveNodePositions() {
+  return currentGameVariant === "6" ? NODE_POSITIONS_6 : NODE_POSITIONS_9;
+}
+function getActiveAdjacency() {
+  return currentGameVariant === "6" ? ADJACENCY_6 : ADJACENCY_9;
+}
+function getActiveMills() {
+  return currentGameVariant === "6" ? MILLS_6 : MILLS_9;
+}
 
 let state = {
   board: Array(24).fill(PLAYER.NONE),
@@ -115,6 +182,14 @@ const modal = document.getElementById("winModal");
 const modalTitle = document.getElementById("modalTitle");
 const modalMessage = document.getElementById("modalMessage");
 const modalIcon = document.getElementById("modalIcon");
+
+function changeGameVariant(variant) {
+  currentGameVariant = variant;
+  initGame();
+  if (activeMode === "online" && conn && conn.open) {
+    conn.send({ type: "VARIANT", variant: variant });
+  }
+}
 
 function getMyPseudo() {
   const input = document.getElementById("player-pseudo");
@@ -309,6 +384,7 @@ function setupConnectionHandlers() {
     document.getElementById("invite-panel").classList.add("hidden");
 
     conn.send({ type: "PSEUDO", pseudo: myPseudo });
+    conn.send({ type: "VARIANT", variant: currentGameVariant });
 
     if (myRole === PLAYER.BLUE) {
       initGame();
@@ -322,6 +398,13 @@ function setupConnectionHandlers() {
       return;
     }
     if (data.type === "RESTART") {
+      initGame();
+      return;
+    }
+    if (data.type === "VARIANT") {
+      currentGameVariant = data.variant;
+      const select = document.getElementById("gameVariant");
+      if (select) select.value = data.variant;
       initGame();
       return;
     }
@@ -411,7 +494,6 @@ function addChatMessage(sender, text) {
   chatMessages.appendChild(msgDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  // Affichage du toast temporaire (3 sec) si le chat est fermé
   const drawer = document.getElementById("chat-drawer");
   if (
     drawer &&
@@ -458,14 +540,18 @@ function escapeHtml(text) {
 }
 
 function initGame() {
-  state.board = Array(24).fill(PLAYER.NONE);
-  state.currentPlayer = PLAYER.BLUE;
-  state.reserves[PLAYER.BLUE] = 9;
-  state.reserves[PLAYER.RED] = 9;
-  state.selectedNode = null;
-  state.isRemoving = false;
-  state.gameOver = false;
-  state.winner = null;
+  const size = currentGameVariant === "6" ? 16 : 24;
+  const initialReserves = currentGameVariant === "6" ? 6 : 9;
+
+  state = {
+    board: Array(size).fill(PLAYER.NONE),
+    currentPlayer: PLAYER.BLUE,
+    reserves: { [PLAYER.BLUE]: initialReserves, [PLAYER.RED]: initialReserves },
+    selectedNode: null,
+    isRemoving: false,
+    gameOver: false,
+    winner: null,
+  };
 
   undoHistory = [];
   undoCounts = { [PLAYER.BLUE]: 3, [PLAYER.RED]: 3 };
@@ -571,11 +657,14 @@ function drawBoardLines() {
   ctx.strokeStyle = "#475569";
   ctx.lineWidth = 3;
 
-  ADJACENCY.forEach((neighbors, nodeIdx) => {
-    const posA = NODE_POSITIONS[nodeIdx];
+  const positions = getActiveNodePositions();
+  const adjacency = getActiveAdjacency();
+
+  adjacency.forEach((neighbors, nodeIdx) => {
+    const posA = positions[nodeIdx];
     neighbors.forEach((neighborIdx) => {
       if (nodeIdx < neighborIdx) {
-        const posB = NODE_POSITIONS[neighborIdx];
+        const posB = positions[neighborIdx];
         ctx.beginPath();
         ctx.moveTo((posA.x / 100) * w, (posA.y / 100) * h);
         ctx.lineTo((posB.x / 100) * w, (posB.y / 100) * h);
@@ -587,7 +676,8 @@ function drawBoardLines() {
 
 function renderNodes() {
   nodesContainer.innerHTML = "";
-  NODE_POSITIONS.forEach((pos, idx) => {
+  const positions = getActiveNodePositions();
+  positions.forEach((pos, idx) => {
     const nodeDiv = document.createElement("div");
     nodeDiv.className = "point-node";
     nodeDiv.style.left = `${pos.x}%`;
@@ -809,7 +899,7 @@ function triggerAIMove() {
             return;
           }
           state.board[p] = PLAYER.RED;
-          state.board[target] = PLAYER.NONE; // ✅ Réinitialisation correcte !
+          state.board[target] = PLAYER.NONE;
         }
       }
     }
@@ -843,7 +933,8 @@ function canRemovePiece(index, opponent) {
 }
 
 function checkMillCreated(index, player) {
-  return MILLS.some((mill) => {
+  const mills = getActiveMills();
+  return mills.some((mill) => {
     if (mill.includes(index)) {
       return mill.every((i) => state.board[i] === player);
     }
@@ -857,7 +948,8 @@ function isPartOfMill(index, player) {
 }
 
 function getValidMoves(index) {
-  return ADJACENCY[index].filter((adj) => state.board[adj] === PLAYER.NONE);
+  const adjacency = getActiveAdjacency();
+  return adjacency[index].filter((adj) => state.board[adj] === PLAYER.NONE);
 }
 
 function getEmptyNodes() {
@@ -1185,8 +1277,11 @@ function updateUI() {
         : getValidMoves(state.selectedNode)
       : [];
 
-  for (let i = 0; i < 24; i++) {
+  const totalNodes = currentGameVariant === "6" ? 16 : 24;
+
+  for (let i = 0; i < totalNodes; i++) {
     const nodeEl = nodes[i];
+    if (!nodeEl) continue;
     nodeEl.innerHTML = "";
     nodeEl.classList.remove("valid-target");
 
