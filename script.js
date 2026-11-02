@@ -95,6 +95,10 @@ let opponentName = "Adversaire";
 let undoHistory = [];
 let undoCounts = { [PLAYER.BLUE]: 3, [PLAYER.RED]: 3 };
 
+// --- Variables pour le Chat en Bulle ---
+let unreadCount = 0;
+let toastTimeout = null;
+
 const canvas = document.getElementById("board-canvas");
 const ctx = canvas.getContext("2d");
 const nodesContainer = document.getElementById("nodes-container");
@@ -173,7 +177,7 @@ function switchGameMode(mode) {
   const invitePanel = document.getElementById("invite-panel");
   const pseudoContainer = document.getElementById("pseudo-container");
   const difficultyContainer = document.getElementById("difficulty-container");
-  const chatCard = document.getElementById("chat-card");
+  const chatWrapper = document.getElementById("chat-wrapper");
   const redLabel = document.getElementById("red-label");
 
   if (mode === "online") {
@@ -181,7 +185,7 @@ function switchGameMode(mode) {
     invitePanel.classList.remove("hidden");
     pseudoContainer.classList.remove("hidden");
     difficultyContainer.classList.add("hidden");
-    chatCard.classList.remove("hidden");
+    chatWrapper.classList.remove("hidden");
     redLabel.textContent = "Joueur Rouge (Invité)";
     enableChat(true);
     if (!peer) initPeer();
@@ -190,7 +194,7 @@ function switchGameMode(mode) {
     invitePanel.classList.add("hidden");
     pseudoContainer.classList.add("hidden");
     difficultyContainer.classList.remove("hidden");
-    chatCard.classList.add("hidden");
+    chatWrapper.classList.add("hidden");
     enableChat(false);
     redLabel.textContent = "Ordinateur (IA)";
   } else {
@@ -198,7 +202,7 @@ function switchGameMode(mode) {
     invitePanel.classList.add("hidden");
     pseudoContainer.classList.add("hidden");
     difficultyContainer.classList.add("hidden");
-    chatCard.classList.add("hidden");
+    chatWrapper.classList.add("hidden");
     enableChat(false);
     redLabel.textContent = "Joueur Rouge";
   }
@@ -357,22 +361,41 @@ const chatMessages = document.getElementById("chat-messages");
 const chatSendBtn = document.getElementById("chat-send-btn");
 
 function enableChat(enabled) {
-  chatInput.disabled = !enabled;
-  chatSendBtn.disabled = !enabled;
+  if (chatInput) chatInput.disabled = !enabled;
+  if (chatSendBtn) chatSendBtn.disabled = !enabled;
 }
 
-chatForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const msg = chatInput.value.trim();
-  if (msg && activeMode === "online" && conn) {
-    const myPseudo = getMyPseudo();
-    addChatMessage(myPseudo, msg);
-    conn.send({ type: "CHAT", message: msg });
-    chatInput.value = "";
+if (chatForm) {
+  chatForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const msg = chatInput.value.trim();
+    if (msg && activeMode === "online" && conn) {
+      const myPseudo = getMyPseudo();
+      addChatMessage(myPseudo, msg);
+      conn.send({ type: "CHAT", message: msg });
+      chatInput.value = "";
+    }
+  });
+}
+
+function toggleChatDrawer() {
+  const drawer = document.getElementById("chat-drawer");
+  const badge = document.getElementById("chat-badge");
+  if (!drawer) return;
+
+  drawer.classList.toggle("hidden");
+
+  if (!drawer.classList.contains("hidden")) {
+    unreadCount = 0;
+    if (badge) {
+      badge.textContent = "0";
+      badge.classList.add("hidden");
+    }
   }
-});
+}
 
 function addChatMessage(sender, text) {
+  if (!chatMessages) return;
   const msgDiv = document.createElement("div");
   msgDiv.className = "mb-1";
   let color = "text-slate-300";
@@ -387,6 +410,45 @@ function addChatMessage(sender, text) {
   msgDiv.innerHTML = `<span class="${color}">${sender} :</span> ${escapeHtml(text)}`;
   chatMessages.appendChild(msgDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // Affichage du toast temporaire (3 sec) si le chat est fermé
+  const drawer = document.getElementById("chat-drawer");
+  if (
+    drawer &&
+    drawer.classList.contains("hidden") &&
+    sender !== myPseudo &&
+    sender !== "Moi"
+  ) {
+    showChatToast(sender, text);
+
+    unreadCount++;
+    const badge = document.getElementById("chat-badge");
+    if (badge) {
+      badge.textContent = unreadCount;
+      badge.classList.remove("hidden");
+    }
+  }
+}
+
+function showChatToast(sender, text) {
+  const toast = document.getElementById("chat-toast");
+  const toastSender = document.getElementById("chat-toast-sender");
+  const toastText = document.getElementById("chat-toast-text");
+
+  if (!toast || !toastSender || !toastText) return;
+
+  toastSender.textContent = sender;
+  toastText.textContent = text;
+
+  toast.classList.remove("opacity-0", "pointer-events-none", "translate-y-2");
+  toast.classList.add("opacity-100", "translate-y-0");
+
+  if (toastTimeout) clearTimeout(toastTimeout);
+
+  toastTimeout = setTimeout(() => {
+    toast.classList.remove("opacity-100", "translate-y-0");
+    toast.classList.add("opacity-0", "pointer-events-none", "translate-y-2");
+  }, 3000);
 }
 
 function escapeHtml(text) {
@@ -747,7 +809,7 @@ function triggerAIMove() {
             return;
           }
           state.board[p] = PLAYER.RED;
-          state.board[target] = PLAYER.NONE; // ✅ CORRECTION : La case redevient vide !
+          state.board[target] = PLAYER.NONE; // ✅ Réinitialisation correcte !
         }
       }
     }

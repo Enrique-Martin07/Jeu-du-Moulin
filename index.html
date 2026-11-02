@@ -13,7 +13,7 @@
     />
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   </head>
-  <body class="min-h-screen flex flex-col justify-between p-3 md:p-6">
+  <body class="min-h-screen flex flex-col justify-between p-3 md:p-6 relative">
     <!-- Écran d'animation d'entrée -->
     <div
       id="intro-screen"
@@ -32,22 +32,21 @@
     </div>
 
     <!-- Header Section -->
-    <header class="max-w-4xl mx-auto w-full text-center mb-2">
+    <header class="max-w-xl mx-auto w-full text-center mb-2">
       <h1
         class="text-3xl md:text-4xl font-bold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-rose-400"
       >
         JEU DU MOULIN
       </h1>
-      <div class="text-xs text-slate-400 mt-1">Version 0.2.5</div>
+      <div class="text-xs text-slate-400 mt-1">Version 0.2.6</div>
     </header>
 
     <!-- Main Container -->
     <main
-      class="max-w-4xl mx-auto w-full flex-grow flex flex-col lg:flex-row gap-4 items-start justify-center"
+      class="max-w-xl mx-auto w-full flex-grow flex flex-col justify-center items-center"
     >
-      <!-- Left Column: Controls & Game Board -->
-      <div class="w-full lg:w-2/3 flex flex-col justify-center">
-        <!-- Mode Selector & Settings Bar (Compact sur mobile) -->
+      <div class="w-full flex flex-col justify-center">
+        <!-- Mode Selector & Settings Bar -->
         <div class="flex items-center gap-2 mb-3">
           <div
             class="bg-slate-800/80 border border-slate-700 p-1.5 rounded-xl flex-grow flex items-center justify-around gap-1 shadow-lg"
@@ -75,7 +74,7 @@
             </button>
           </div>
 
-          <!-- Bouton Ouvrir Paramètres (Escamotable) -->
+          <!-- Bouton Ouvrir Paramètres -->
           <button
             onclick="toggleSettingsModal()"
             title="Paramètres & Options"
@@ -229,51 +228,87 @@
           </button>
         </div>
       </div>
-
-      <!-- Right Column: Chat (Visible uniquement en mode en ligne) -->
-      <div id="right-column" class="w-full lg:w-1/3 flex flex-col gap-3">
-        <div
-          id="chat-card"
-          class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex flex-col h-[320px] lg:h-[480px] shadow-lg hidden"
-        >
-          <h2
-            class="text-sm font-bold text-slate-300 border-b border-slate-700/80 pb-2 mb-2 flex items-center gap-2"
-          >
-            <i class="fa-solid fa-comments text-sky-400"></i> Chat de la partie
-          </h2>
-          <div
-            id="chat-messages"
-            class="flex-grow overflow-y-auto space-y-2 pr-1 text-xs mb-2"
-          >
-            <div class="text-slate-400 text-center py-2">
-              Discutez avec votre adversaire en ligne !
-            </div>
-          </div>
-          <form
-            id="chat-form"
-            class="flex gap-2 border-t border-slate-700/80 pt-2"
-          >
-            <input
-              type="text"
-              id="chat-input"
-              placeholder="Votre message..."
-              disabled
-              class="bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 flex-grow text-white focus:outline-none focus:border-sky-500 transition"
-            />
-            <button
-              type="submit"
-              id="chat-send-btn"
-              disabled
-              class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition"
-            >
-              <i class="fa-solid fa-paper-plane"></i>
-            </button>
-          </form>
-        </div>
-      </div>
     </main>
 
-    <!-- FENÊTRE MODALE DES PARAMÈTRES (ESCAMOTABLE) -->
+    <!-- SYSTEME DE CHAT EN BULLE FLOTTANTE (MODE EN LIGNE) -->
+    <div
+      id="chat-wrapper"
+      class="fixed bottom-5 right-5 z-40 hidden flex flex-col items-end gap-2"
+    >
+      <!-- Popup Aperçu temporaire (Toast 3 sec) -->
+      <div
+        id="chat-toast"
+        class="bg-slate-900/95 border border-sky-500/80 text-white text-xs px-3.5 py-2 rounded-2xl shadow-2xl max-w-[220px] backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300 transform translate-y-2 flex items-center gap-2"
+      >
+        <span id="chat-toast-sender" class="font-bold text-sky-400"></span> :
+        <span id="chat-toast-text" class="truncate"></span>
+      </div>
+
+      <!-- Bulle d'action flottante (FAB) -->
+      <button
+        id="chat-fab"
+        onclick="toggleChatDrawer()"
+        class="w-13 h-13 rounded-full bg-sky-600 hover:bg-sky-500 text-white shadow-2xl flex items-center justify-center border-2 border-sky-400/50 transition transform hover:scale-105 active:scale-95 relative"
+      >
+        <i class="fa-solid fa-comments text-lg"></i>
+        <span
+          id="chat-badge"
+          class="hidden absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-900 shadow animate-bounce"
+          >0</span
+        >
+      </button>
+
+      <!-- Tiroir / Modal du Chat complet -->
+      <div
+        id="chat-drawer"
+        class="bg-slate-900 border border-slate-700 rounded-2xl p-3 flex flex-col w-80 h-96 shadow-2xl transition-all duration-300 hidden"
+      >
+        <div
+          class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2"
+        >
+          <h2
+            class="text-xs font-bold text-slate-200 flex items-center gap-1.5"
+          >
+            <i class="fa-solid fa-comments text-sky-400"></i> Chat En Ligne
+          </h2>
+          <button
+            onclick="toggleChatDrawer()"
+            class="text-slate-400 hover:text-white text-xs p-1"
+          >
+            <i class="fa-solid fa-xmark text-base"></i>
+          </button>
+        </div>
+
+        <div
+          id="chat-messages"
+          class="flex-grow overflow-y-auto space-y-2 pr-1 text-xs mb-2"
+        >
+          <div class="text-slate-400 text-center py-2 italic text-[11px]">
+            Partie en ligne connectée !
+          </div>
+        </div>
+
+        <form id="chat-form" class="flex gap-2 border-t border-slate-800 pt-2">
+          <input
+            type="text"
+            id="chat-input"
+            placeholder="Écrire un message..."
+            disabled
+            class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-3 py-2 flex-grow text-white focus:outline-none focus:border-sky-500 transition"
+          />
+          <button
+            type="submit"
+            id="chat-send-btn"
+            disabled
+            class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition"
+          >
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- FENÊTRE MODALE DES PARAMÈTRES -->
     <div
       id="settings-modal"
       class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden"
@@ -312,7 +347,7 @@
           </select>
         </div>
 
-        <!-- Sélecteur de difficulté (Visible uniquement en mode IA) -->
+        <!-- Difficulté IA -->
         <div
           id="difficulty-container"
           class="mb-4 bg-slate-800/50 border border-slate-800 p-3 rounded-xl hidden"
@@ -346,7 +381,7 @@
           </div>
         </div>
 
-        <!-- Sélecteur de pseudo (Visible uniquement en mode En Ligne) -->
+        <!-- Pseudo -->
         <div
           id="pseudo-container"
           class="mb-4 bg-slate-800/50 border border-slate-800 p-3 rounded-xl hidden"
@@ -439,7 +474,6 @@
       </div>
     </div>
 
-    <!-- Script pour la modale paramètres -->
     <script>
       function toggleSettingsModal() {
         const modal = document.getElementById("settings-modal");
