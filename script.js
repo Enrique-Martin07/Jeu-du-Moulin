@@ -183,6 +183,35 @@ const modalTitle = document.getElementById("modalTitle");
 const modalMessage = document.getElementById("modalMessage");
 const modalIcon = document.getElementById("modalIcon");
 
+// --- INITIALISATION DU WEB WORKER IA (ARRIÈRE-PLAN) ---
+let aiWorker = new Worker("ai.worker.js");
+
+aiWorker.onmessage = function (e) {
+  const bestMove = e.data;
+  if (bestMove) {
+    if (state.reserves[PLAYER.RED] > 0) {
+      state.board[bestMove.to] = PLAYER.RED;
+      state.reserves[PLAYER.RED]--;
+    } else {
+      state.board[bestMove.to] = PLAYER.RED;
+      if (bestMove.from !== null) {
+        state.board[bestMove.from] = PLAYER.NONE;
+      }
+    }
+
+    if (checkMillCreated(bestMove.to, PLAYER.RED)) {
+      state.isRemoving = true;
+      playSound("mill");
+      updateUI();
+      setTimeout(triggerAIMove, 400);
+      return;
+    } else {
+      switchTurn();
+    }
+    updateUI();
+  }
+};
+
 function changeGameVariant(variant) {
   currentGameVariant = variant;
   initGame();
@@ -816,7 +845,7 @@ function switchTurn() {
 }
 
 // =========================================================================
-// --- CERVEAU DU MOTEUR D'IA OPTIMISÉ (ALPHA-BETA FLUIDE) ---
+// --- GESTIONNAIRE DES COUPS DE L'IA (AVEC WEB WORKER) ---
 // =========================================================================
 
 function triggerAIMove() {
@@ -843,34 +872,10 @@ function triggerAIMove() {
     return;
   }
 
-  // --- NIVEAU ALPHA-BETA OPTIMISÉ (Profondeur 3 instantanée) ---
+  // --- NIVEAU ALPHA-BETA : APPEL AU WEB WORKER ---
   if (aiDifficulty === "alphabeta") {
-    const depth = 3; // Profondeur idéale pour un calcul ultra-rapide et sans gel du navigateur
-
-    const bestMove = getBestAlphaBetaMove(state, depth);
-    if (bestMove) {
-      if (state.reserves[PLAYER.RED] > 0) {
-        state.board[bestMove.to] = PLAYER.RED;
-        state.reserves[PLAYER.RED]--;
-      } else {
-        state.board[bestMove.to] = PLAYER.RED;
-        if (bestMove.from !== null) {
-          state.board[bestMove.from] = PLAYER.NONE;
-        }
-      }
-
-      if (checkMillCreated(bestMove.to, PLAYER.RED)) {
-        state.isRemoving = true;
-        playSound("mill");
-        updateUI();
-        setTimeout(triggerAIMove, 400);
-        return;
-      } else {
-        switchTurn();
-      }
-      updateUI();
-      return;
-    }
+    aiWorker.postMessage({ state: state, variant: currentGameVariant });
+    return;
   }
 
   // Logique standard pour Facile, Moyen, Difficile
@@ -964,159 +969,6 @@ function triggerAIMove() {
     }
   }
   updateUI();
-}
-
-// --- RECHERCHE MINIMAX / ALPHA-BETA ---
-function getBestAlphaBetaMove(currentState, depth) {
-  let bestScore = -Infinity;
-  let bestMove = null;
-  const possibleMoves = getAllPossibleMoves(currentState, PLAYER.RED);
-
-  // TRI DES COUPS : Priorise la fermeture des moulins
-  possibleMoves.sort((a, b) => {
-    let aMill = checkMillCreated(a.to, PLAYER.RED) ? 10 : 0;
-    let bMill = checkMillCreated(b.to, PLAYER.RED) ? 10 : 0;
-    return bMill - aMill;
-  });
-
-  for (let move of possibleMoves) {
-    let nextState = simulateMove(currentState, move, PLAYER.RED);
-    let score = alphaBeta(nextState, depth - 1, -Infinity, Infinity, false);
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = move;
-    }
-  }
-  return bestMove || possibleMoves[0];
-}
-
-function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
-  if (depth === 0 || nodeState.gameOver) {
-    return evaluateBoardGodMode(nodeState);
-  }
-
-  const moves = getAllPossibleMoves(
-    nodeState,
-    maximizingPlayer ? PLAYER.RED : PLAYER.BLUE,
-  );
-
-  if (maximizingPlayer) {
-    let maxEval = -Infinity;
-    for (let move of moves) {
-      let nextState = simulateMove(nodeState, move, PLAYER.RED);
-      let evaluation = alphaBeta(nextState, depth - 1, alpha, beta, false);
-      maxEval = Math.max(maxEval, evaluation);
-      alpha = Math.max(alpha, evaluation);
-      if (beta <= alpha) break; // Coupure Alpha-Beta
-    }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for (let move of moves) {
-      let nextState = simulateMove(nodeState, move, PLAYER.BLUE);
-      let evaluation = alphaBeta(nextState, depth - 1, alpha, beta, true);
-      minEval = Math.min(minEval, evaluation);
-      beta = Math.min(beta, evaluation);
-      if (beta <= alpha) break; // Coupure Alpha-Beta
-    }
-    return minEval;
-  }
-}
-
-// --- SIMULATION AVEC CAPTURE INTÉGRÉE ---
-function simulateMove(st, move, player) {
-  let newState = JSON.parse(JSON.stringify(st));
-  if (move.from !== null) {
-    newState.board[move.from] = PLAYER.NONE;
-  } else {
-    newState.reserves[player]--;
-  }
-  newState.board[move.to] = player;
-
-  if (checkMillCreatedInState(newState, move.to, player)) {
-    const opponent = player === PLAYER.RED ? PLAYER.BLUE : PLAYER.RED;
-    const opponentPieces = newState.board
-      .map((val, idx) => (val === opponent ? idx : null))
-      .filter((val) => val !== null);
-
-    if (opponentPieces.length > 0) {
-      const nonMillPieces = opponentPieces.filter(
-        (idx) => !isPartOfMillInState(newState, idx, opponent),
-      );
-      const targetToRemove =
-        nonMillPieces.length > 0 ? nonMillPieces[0] : opponentPieces[0];
-      newState.board[targetToRemove] = PLAYER.NONE;
-    }
-  }
-
-  return newState;
-}
-
-function checkMillCreatedInState(st, index, player) {
-  const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
-  return mills.some((mill) => {
-    if (mill.includes(index)) {
-      return mill.every((i) => st.board[i] === player);
-    }
-    return false;
-  });
-}
-
-function isPartOfMillInState(st, index, player) {
-  if (st.board[index] !== player) return false;
-  return checkMillCreatedInState(st, index, player);
-}
-
-function countPotentialMills(st, player) {
-  let count = 0;
-  const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
-  mills.forEach((mill) => {
-    let playerPieces = mill.filter((i) => st.board[i] === player).length;
-    let emptySpots = mill.filter((i) => st.board[i] === PLAYER.NONE).length;
-    if (playerPieces === 2 && emptySpots === 1) {
-      count++;
-    }
-  });
-  return count;
-}
-
-// --- ÉVALUATION TACTIQUE ---
-function evaluateBoardGodMode(st) {
-  const redOnBoard = st.board.filter((v) => v === PLAYER.RED).length;
-  const blueOnBoard = st.board.filter((v) => v === PLAYER.BLUE).length;
-  const redRes = st.reserves[PLAYER.RED];
-  const blueRes = st.reserves[PLAYER.BLUE];
-
-  if (blueRes === 0 && blueOnBoard < 3) return 10000;
-  if (redRes === 0 && redOnBoard < 3) return -10000;
-
-  let redMills = 0;
-  let blueMills = 0;
-  const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
-  mills.forEach((mill) => {
-    if (mill.every((i) => st.board[i] === PLAYER.RED)) redMills++;
-    if (mill.every((i) => st.board[i] === PLAYER.BLUE)) blueMills++;
-  });
-
-  const redPot = countPotentialMills(st, PLAYER.RED);
-  const bluePot = countPotentialMills(st, PLAYER.BLUE);
-
-  const redMoves = getAllPossibleMoves(st, PLAYER.RED).length;
-  const blueMoves = getAllPossibleMoves(st, PLAYER.BLUE).length;
-
-  let score =
-    redOnBoard * 20 +
-    redRes * 18 +
-    redMills * 80 +
-    redPot * 40 +
-    redMoves * 2 -
-    (blueOnBoard * 20 +
-      blueRes * 18 +
-      blueMills * 80 +
-      bluePot * 40 +
-      blueMoves * 2);
-
-  return score;
 }
 
 // =========================================================================
