@@ -474,7 +474,6 @@ function updateUndoButtonUI() {
         ? currentTheme.player1
         : currentTheme.player2;
 
-    // Adaptation spéciale pour le mode monochrome pour garder une parfaite visibilité
     if (currentTheme === colorThemes.monochrome) {
       btnUndo.classList.add(
         "bg-slate-800",
@@ -748,7 +747,7 @@ function triggerAIMove() {
             return;
           }
           state.board[p] = PLAYER.RED;
-          state.board[target] = PLAYER.RED; // Corrigé ici (réinitialisation correcte)
+          state.board[target] = PLAYER.NONE; // ✅ CORRECTION : La case redevient vide !
         }
       }
     }
