@@ -815,7 +815,10 @@ function switchTurn() {
   }
 }
 
-// --- CERVEAU DE L'IA (Niveaux Easy, Medium, Hard, Alpha-Beta) ---
+// =========================================================================
+// --- CERVEAU DU MOTEUR D'IA GOD-MODE (ALPHA-BETA ULTIME) ---
+// =========================================================================
+
 function triggerAIMove() {
   if (state.isRemoving) {
     const opponentPieces = getPieceIndices(PLAYER.BLUE);
@@ -840,9 +843,14 @@ function triggerAIMove() {
     return;
   }
 
-  // Niveau Alpha-Beta 🧠 (Expert Amélioré)
+  // --- NIVEAU ALPHA-BETA GOD MODE 🧠 ---
   if (aiDifficulty === "alphabeta") {
-    const bestMove = getBestAlphaBetaMove(state, 3);
+    const totalPiecesOnBoard =
+      getPieceCountOnBoard(PLAYER.RED) + getPieceCountOnBoard(PLAYER.BLUE);
+    // Profondeur 4 en début de partie, jusqu'à 5 ou 6 en fin de partie pour calcul d'échec et mat absolu !
+    const depth = totalPiecesOnBoard <= 10 ? 5 : 4;
+
+    const bestMove = getBestAlphaBetaMove(state, depth);
     if (bestMove) {
       if (state.reserves[PLAYER.RED] > 0) {
         state.board[bestMove.to] = PLAYER.RED;
@@ -961,18 +969,16 @@ function triggerAIMove() {
   updateUI();
 }
 
-// --- ALGORITHME MINIMAX / ALPHA-BETA OPTIMISÉ ---
+// --- RECHERCHE MINIMAX / ALPHA-BETA GOD MODE ---
 function getBestAlphaBetaMove(currentState, depth) {
   let bestScore = -Infinity;
   let bestMove = null;
   const possibleMoves = getAllPossibleMoves(currentState, PLAYER.RED);
 
-  // Prioriser les coups qui créent un moulin dès le début de l'évaluation
+  // TRI INTELLIGENT DES COUPS : Priorise la fermeture des moulins et les captures
   possibleMoves.sort((a, b) => {
-    let testStateA = simulateMove(currentState, a, PLAYER.RED);
-    let testStateB = simulateMove(currentState, b, PLAYER.RED);
-    let aMill = checkMillCreated(a.to, PLAYER.RED) ? 1 : 0;
-    let bMill = checkMillCreated(b.to, PLAYER.RED) ? 1 : 0;
+    let aMill = checkMillCreated(a.to, PLAYER.RED) ? 10 : 0;
+    let bMill = checkMillCreated(b.to, PLAYER.RED) ? 10 : 0;
     return bMill - aMill;
   });
 
@@ -989,66 +995,38 @@ function getBestAlphaBetaMove(currentState, depth) {
 
 function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
   if (depth === 0 || nodeState.gameOver) {
-    return evaluateBoard(nodeState);
+    return evaluateBoardGodMode(nodeState);
   }
+
+  const moves = getAllPossibleMoves(
+    nodeState,
+    maximizingPlayer ? PLAYER.RED : PLAYER.BLUE,
+  );
 
   if (maximizingPlayer) {
     let maxEval = -Infinity;
-    const moves = getAllPossibleMoves(nodeState, PLAYER.RED);
     for (let move of moves) {
       let nextState = simulateMove(nodeState, move, PLAYER.RED);
       let evaluation = alphaBeta(nextState, depth - 1, alpha, beta, false);
       maxEval = Math.max(maxEval, evaluation);
       alpha = Math.max(alpha, evaluation);
-      if (beta <= alpha) break;
+      if (beta <= alpha) break; // Coupure Alpha-Beta
     }
     return maxEval;
   } else {
     let minEval = Infinity;
-    const moves = getAllPossibleMoves(nodeState, PLAYER.BLUE);
     for (let move of moves) {
       let nextState = simulateMove(nodeState, move, PLAYER.BLUE);
       let evaluation = alphaBeta(nextState, depth - 1, alpha, beta, true);
       minEval = Math.min(minEval, evaluation);
       beta = Math.min(beta, evaluation);
-      if (beta <= alpha) break;
+      if (beta <= alpha) break; // Coupure Alpha-Beta
     }
     return minEval;
   }
 }
 
-function getAllPossibleMoves(st, player) {
-  let moves = [];
-  const size = currentGameVariant === "6" ? 16 : 24;
-
-  if (st.reserves[player] > 0) {
-    for (let i = 0; i < size; i++) {
-      if (st.board[i] === PLAYER.NONE) {
-        moves.push({ from: null, to: i });
-      }
-    }
-  } else {
-    const pieces = st.board
-      .map((val, idx) => (val === player ? idx : null))
-      .filter((val) => val !== null);
-    const isFlying = pieces.length === 3;
-    const adjacency = currentGameVariant === "6" ? ADJACENCY_6 : ADJACENCY_9;
-
-    for (let p of pieces) {
-      const targets = isFlying
-        ? st.board
-            .map((val, idx) => (val === PLAYER.NONE ? idx : null))
-            .filter((val) => val !== null)
-        : adjacency[p].filter((adj) => st.board[adj] === PLAYER.NONE);
-
-      for (let t of targets) {
-        moves.push({ from: p, to: t });
-      }
-    }
-  }
-  return moves;
-}
-
+// --- SIMULATION AVEC SIMULATION DE CAPTURE ---
 function simulateMove(st, move, player) {
   let newState = JSON.parse(JSON.stringify(st));
   if (move.from !== null) {
@@ -1057,34 +1035,103 @@ function simulateMove(st, move, player) {
     newState.reserves[player]--;
   }
   newState.board[move.to] = player;
+
+  // Si le coup crée un moulin, simuler la suppression du meilleur pion adverse
+  if (checkMillCreatedInState(newState, move.to, player)) {
+    const opponent = player === PLAYER.RED ? PLAYER.BLUE : PLAYER.RED;
+    const opponentPieces = newState.board
+      .map((val, idx) => (val === opponent ? idx : null))
+      .filter((val) => val !== null);
+
+    if (opponentPieces.length > 0) {
+      // Retirer en priorité un pion qui n'est pas dans un moulin
+      const nonMillPieces = opponentPieces.filter(
+        (idx) => !isPartOfMillInState(newState, idx, opponent),
+      );
+      const targetToRemove =
+        nonMillPieces.length > 0 ? nonMillPieces[0] : opponentPieces[0];
+      newState.board[targetToRemove] = PLAYER.NONE;
+    }
+  }
+
   return newState;
 }
 
-// --- FONCTION D'ÉVALUATION STRATÉGIQUE AMÉLIORÉE ---
-function evaluateBoard(st) {
-  const redPieces = st.board.filter((v) => v === PLAYER.RED).length;
-  const bluePieces = st.board.filter((v) => v === PLAYER.BLUE).length;
+function checkMillCreatedInState(st, index, player) {
+  const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
+  return mills.some((mill) => {
+    if (mill.includes(index)) {
+      return mill.every((i) => st.board[i] === player);
+    }
+    return false;
+  });
+}
+
+function isPartOfMillInState(st, index, player) {
+  if (st.board[index] !== player) return false;
+  return checkMillCreatedInState(st, index, player);
+}
+
+// --- DÉTECTION DES DOUBLE MENACES (FOURCHES DE MOULIN) ---
+function countPotentialMills(st, player) {
+  let count = 0;
+  const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
+  mills.forEach((mill) => {
+    let playerPieces = mill.filter((i) => st.board[i] === player).length;
+    let emptySpots = mill.filter((i) => st.board[i] === PLAYER.NONE).length;
+    if (playerPieces === 2 && emptySpots === 1) {
+      count++;
+    }
+  });
+  return count;
+}
+
+// --- EVALUATION TACTIQUE GOD MODE (3000+ ELO) ---
+function evaluateBoardGodMode(st) {
+  const redOnBoard = st.board.filter((v) => v === PLAYER.RED).length;
+  const blueOnBoard = st.board.filter((v) => v === PLAYER.BLUE).length;
   const redRes = st.reserves[PLAYER.RED];
   const blueRes = st.reserves[PLAYER.BLUE];
 
-  // Compter les moulins actuels pour chaque joueur
+  // Condition d'échec et mat absolu
+  if (blueRes === 0 && blueOnBoard < 3) return 10000;
+  if (redRes === 0 && redOnBoard < 3) return -10000;
+
+  // Nombre de moulins fermés
   let redMills = 0;
   let blueMills = 0;
-  const mills = getActiveMills();
-
+  const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
   mills.forEach((mill) => {
     if (mill.every((i) => st.board[i] === PLAYER.RED)) redMills++;
     if (mill.every((i) => st.board[i] === PLAYER.BLUE)) blueMills++;
   });
 
-  // Score affiné : Pions + Réserves + Bonus très fort pour chaque Moulin formé
+  // Nombre de menaces de moulin (2 sur 3)
+  const redPot = countPotentialMills(st, PLAYER.RED);
+  const bluePot = countPotentialMills(st, PLAYER.BLUE);
+
+  // Nombre de mouvements possibles (Mobilité / Asphyxie)
+  const redMoves = getAllPossibleMoves(st, PLAYER.RED).length;
+  const blueMoves = getAllPossibleMoves(st, PLAYER.BLUE).length;
+
+  // Formule mathématique destructrice :
+  // Moulins fermés (très haut score), Fourches/Menaces (gros bonus), Différentiel de pièces et Mobilité
   let score =
-    redPieces +
-    redRes * 1.5 +
-    redMills * 6 -
-    (bluePieces + blueRes * 1.5 + blueMills * 6);
+    redOnBoard * 20 +
+    redRes * 18 +
+    redMills * 80 +
+    redPot * 40 +
+    redMoves * 2 -
+    (blueOnBoard * 20 +
+      blueRes * 18 +
+      blueMills * 80 +
+      bluePot * 40 +
+      blueMoves * 2);
+
   return score;
 }
+
+// =========================================================================
 
 function canRemovePiece(index, opponent) {
   if (!isPartOfMill(index, opponent)) return true;
