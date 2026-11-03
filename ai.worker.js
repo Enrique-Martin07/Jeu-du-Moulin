@@ -1,4 +1,4 @@
-// --- WEB WORKER : SKYNET ULTRA-IMPITOYABLE (Alpha-Beta Avancé) ---
+// --- WEB WORKER : SKYNET GOD MODE (IA IMPITOYABLE & SADIQUE) ---
 
 let currentGameVariant = "9";
 let transpositionTable = new Map();
@@ -90,9 +90,9 @@ self.onmessage = function (e) {
   currentGameVariant = variant;
   transpositionTable.clear();
 
-  // Profondeur augmentée pour une lecture tactique chirurgicale
   const totalPieces = state.board.filter((v) => v !== PLAYER.NONE).length;
-  const depth = totalPieces <= 10 ? 6 : 5;
+  // Profondeur accrue (6 coups minimum)
+  const depth = totalPieces <= 12 ? 6 : 5;
 
   const bestMove = getBestAlphaBetaMove(state, depth);
   self.postMessage(bestMove);
@@ -103,13 +103,13 @@ function getBestAlphaBetaMove(currentState, depth) {
   let bestMove = null;
   const possibleMoves = getAllPossibleMoves(currentState, PLAYER.RED);
 
-  // Tri prioritaire des coups fermant un moulin
+  // Tri hyper-agressif des coups : prioriser l'activation des pièges et des moulins
   possibleMoves.sort((a, b) => {
     let aMill = checkMillCreatedInState(currentState, a.to, PLAYER.RED)
-      ? 100
+      ? 500
       : 0;
     let bMill = checkMillCreatedInState(currentState, b.to, PLAYER.RED)
-      ? 100
+      ? 500
       : 0;
     return bMill - aMill;
   });
@@ -139,7 +139,7 @@ function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
   }
 
   if (depth === 0 || nodeState.gameOver) {
-    let evalScore = evaluateBoardSkynet(nodeState);
+    let evalScore = evaluateBoardGodMode(nodeState);
     transpositionTable.set(boardKey, evalScore);
     return evalScore;
   }
@@ -225,8 +225,23 @@ function simulateMove(st, move, player) {
       const nonMillPieces = opponentPieces.filter(
         (idx) => !isPartOfMillInState(newState, idx, opponent),
       );
-      const targetToRemove =
-        nonMillPieces.length > 0 ? nonMillPieces[0] : opponentPieces[0];
+
+      // Retirer la pièce adverse qui ruine le plus sa structure (ou qui détruit une menace potentielle)
+      let targetToRemove = nonMillPieces[0] || opponentPieces[0];
+      let bestRemovalScore = -Infinity;
+
+      const candidates =
+        nonMillPieces.length > 0 ? nonMillPieces : opponentPieces;
+      for (let cand of candidates) {
+        let tempState = JSON.parse(JSON.stringify(newState));
+        tempState.board[cand] = PLAYER.NONE;
+        let score = countPotentialMills(tempState, opponent) * -100;
+        if (score > bestRemovalScore) {
+          bestRemovalScore = score;
+          targetToRemove = cand;
+        }
+      }
+
       newState.board[targetToRemove] = PLAYER.NONE;
     }
   }
@@ -248,6 +263,7 @@ function isPartOfMillInState(st, index, player) {
   return checkMillCreatedInState(st, index, player);
 }
 
+// Compte les opportunités de créer un moulin (2 pions + 1 case vide)
 function countPotentialMills(st, player) {
   let count = 0;
   const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
@@ -259,8 +275,8 @@ function countPotentialMills(st, player) {
   return count;
 }
 
-// --- NOUVELLE FONCTION D'ÉVALUATION IMPitoyable ---
-function evaluateBoardSkynet(st) {
+// --- ÉVALUATION SADIQUE (GOD MODE) ---
+function evaluateBoardGodMode(st) {
   const redPieces =
     st.board.filter((v) => v === PLAYER.RED).length + st.reserves[PLAYER.RED];
   const bluePieces =
@@ -269,8 +285,9 @@ function evaluateBoardSkynet(st) {
   const blueOnBoard = st.board.filter((v) => v === PLAYER.BLUE).length;
   const redOnBoard = st.board.filter((v) => v === PLAYER.RED).length;
 
-  if (st.reserves[PLAYER.BLUE] === 0 && blueOnBoard < 3) return 1000000;
-  if (st.reserves[PLAYER.RED] === 0 && redOnBoard < 3) return -1000000;
+  // Victoire immédiate
+  if (st.reserves[PLAYER.BLUE] === 0 && blueOnBoard < 3) return 10000000;
+  if (st.reserves[PLAYER.RED] === 0 && redOnBoard < 3) return -10000000;
 
   let redMills = 0;
   let blueMills = 0;
@@ -286,12 +303,20 @@ function evaluateBoardSkynet(st) {
   const redMoves = getAllPossibleMoves(st, PLAYER.RED).length;
   const blueMoves = getAllPossibleMoves(st, PLAYER.BLUE).length;
 
-  // Calcul lourd axé sur l'élimination des pions et l'asphyxie totale (zéro mobilité adverse = victoire)
+  // Détection de fourches (double menaces simultanées)
+  const redForks = redPot >= 2 ? 1500 : 0;
+  const blueForks = bluePot >= 2 ? 1500 : 0;
+
+  // Asphyxie : pénaliser drastiquement l'adversaire s'il a très peu de coups possibles
+  const asphyxiaBonus = blueMoves === 0 ? 500000 : (20 - blueMoves) * 150;
+
   let score =
-    (redPieces - bluePieces) * 1000 +
-    (redMills - blueMills) * 600 +
-    (redPot - bluePot) * 300 +
-    (redMoves - blueMoves) * 50;
+    (redPieces - bluePieces) * 5000 +
+    (redMills - blueMills) * 2000 +
+    (redPot - bluePot) * 800 +
+    (redForks - blueForks) +
+    asphyxiaBonus +
+    redMoves * 30;
 
   return score;
 }
