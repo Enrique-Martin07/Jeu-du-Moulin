@@ -1,7 +1,7 @@
-// --- WEB WORKER : IA DIVINITÉ ABSOLUE (Alpha-Beta Profondeur 6 + Transposition Table) ---
+// --- WEB WORKER : SKYNET ULTRA-IMPITOYABLE (Alpha-Beta Avancé) ---
 
 let currentGameVariant = "9";
-let transpositionTable = new Map(); // Cache de mémoire pour éviter les calculs redondants
+let transpositionTable = new Map();
 
 const ADJACENCY_9 = [
   [1, 7],
@@ -88,9 +88,9 @@ const PLAYER = { NONE: 0, BLUE: 1, RED: 2 };
 self.onmessage = function (e) {
   const { state, variant } = e.data;
   currentGameVariant = variant;
-  transpositionTable.clear(); // Nettoyer le cache à chaque tour pour repartir sur du frais
+  transpositionTable.clear();
 
-  // Adaptation dynamique de la profondeur : 5 en début de partie, 6 en milieu/fin pour voir tous les pièges
+  // Profondeur augmentée pour une lecture tactique chirurgicale
   const totalPieces = state.board.filter((v) => v !== PLAYER.NONE).length;
   const depth = totalPieces <= 10 ? 6 : 5;
 
@@ -103,13 +103,13 @@ function getBestAlphaBetaMove(currentState, depth) {
   let bestMove = null;
   const possibleMoves = getAllPossibleMoves(currentState, PLAYER.RED);
 
-  // Tri ultra-agressif des coups : on teste en priorité ceux qui ferment un moulin
+  // Tri prioritaire des coups fermant un moulin
   possibleMoves.sort((a, b) => {
     let aMill = checkMillCreatedInState(currentState, a.to, PLAYER.RED)
-      ? 50
+      ? 100
       : 0;
     let bMill = checkMillCreatedInState(currentState, b.to, PLAYER.RED)
-      ? 50
+      ? 100
       : 0;
     return bMill - aMill;
   });
@@ -126,7 +126,6 @@ function getBestAlphaBetaMove(currentState, depth) {
 }
 
 function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
-  // Clé de hachage simple pour la table de transposition
   const boardKey =
     nodeState.board.join("") +
     "-" +
@@ -157,7 +156,7 @@ function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
       let evaluation = alphaBeta(nextState, depth - 1, alpha, beta, false);
       maxEval = Math.max(maxEval, evaluation);
       alpha = Math.max(alpha, evaluation);
-      if (beta <= alpha) break; // Coupure Alpha-Beta
+      if (beta <= alpha) break;
     }
     transpositionTable.set(boardKey, maxEval);
     return maxEval;
@@ -168,7 +167,7 @@ function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
       let evaluation = alphaBeta(nextState, depth - 1, alpha, beta, true);
       minEval = Math.min(minEval, evaluation);
       beta = Math.min(beta, evaluation);
-      if (beta <= alpha) break; // Coupure Alpha-Beta
+      if (beta <= alpha) break;
     }
     transpositionTable.set(boardKey, minEval);
     return minEval;
@@ -249,7 +248,6 @@ function isPartOfMillInState(st, index, player) {
   return checkMillCreatedInState(st, index, player);
 }
 
-// Détection des menaces de moulin (2 sur 3)
 function countPotentialMills(st, player) {
   let count = 0;
   const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
@@ -261,16 +259,18 @@ function countPotentialMills(st, player) {
   return count;
 }
 
-// --- ÉVALUATION SKYNET (NIVEAU IMPITOYABLE) ---
+// --- NOUVELLE FONCTION D'ÉVALUATION IMPitoyable ---
 function evaluateBoardSkynet(st) {
-  const redOnBoard = st.board.filter((v) => v === PLAYER.RED).length;
-  const blueOnBoard = st.board.filter((v) => v === PLAYER.BLUE).length;
-  const redRes = st.reserves[PLAYER.RED];
-  const blueRes = st.reserves[PLAYER.BLUE];
+  const redPieces =
+    st.board.filter((v) => v === PLAYER.RED).length + st.reserves[PLAYER.RED];
+  const bluePieces =
+    st.board.filter((v) => v === PLAYER.BLUE).length + st.reserves[PLAYER.BLUE];
 
-  // Victoire / Défaite mathématique absolue
-  if (blueRes === 0 && blueOnBoard < 3) return 100000;
-  if (redRes === 0 && redOnBoard < 3) return -100000;
+  const blueOnBoard = st.board.filter((v) => v === PLAYER.BLUE).length;
+  const redOnBoard = st.board.filter((v) => v === PLAYER.RED).length;
+
+  if (st.reserves[PLAYER.BLUE] === 0 && blueOnBoard < 3) return 1000000;
+  if (st.reserves[PLAYER.RED] === 0 && redOnBoard < 3) return -1000000;
 
   let redMills = 0;
   let blueMills = 0;
@@ -286,18 +286,12 @@ function evaluateBoardSkynet(st) {
   const redMoves = getAllPossibleMoves(st, PLAYER.RED).length;
   const blueMoves = getAllPossibleMoves(st, PLAYER.BLUE).length;
 
-  // Formule Skynet : Poids massif sur les moulins fermés, les menaces et l'asphyxie totale des mouvements
+  // Calcul lourd axé sur l'élimination des pions et l'asphyxie totale (zéro mobilité adverse = victoire)
   let score =
-    redOnBoard * 30 +
-    redRes * 25 +
-    redMills * 200 +
-    redPot * 80 +
-    redMoves * 5 -
-    (blueOnBoard * 30 +
-      blueRes * 25 +
-      blueMills * 200 +
-      bluePot * 80 +
-      blueMoves * 5);
+    (redPieces - bluePieces) * 1000 +
+    (redMills - blueMills) * 600 +
+    (redPot - bluePot) * 300 +
+    (redMoves - blueMoves) * 50;
 
   return score;
 }
