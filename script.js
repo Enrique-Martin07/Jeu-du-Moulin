@@ -183,6 +183,58 @@ const modalTitle = document.getElementById("modalTitle");
 const modalMessage = document.getElementById("modalMessage");
 const modalIcon = document.getElementById("modalIcon");
 
+// --- SYSTÈME DE SAUVEGARDE LOCALE (LOCALSTORAGE) ---
+function saveGameState() {
+  if (typeof Storage !== "undefined") {
+    const saveData = {
+      state: state,
+      currentGameVariant: currentGameVariant,
+      activeMode: activeMode,
+      aiDifficulty: aiDifficulty,
+      undoHistory: undoHistory,
+      undoCounts: undoCounts,
+    };
+    localStorage.setItem("moulin_game_save", JSON.stringify(saveData));
+  }
+}
+
+function loadGameState() {
+  if (typeof Storage !== "undefined") {
+    const saved = localStorage.getItem("moulin_game_save");
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.state) {
+          state = data.state;
+          currentGameVariant = data.currentGameVariant || "9";
+          activeMode = data.activeMode || "local";
+          aiDifficulty = data.aiDifficulty || "easy";
+          undoHistory = data.undoHistory || [];
+          undoCounts = data.undoCounts || { [PLAYER.BLUE]: 3, [PLAYER.RED]: 3 };
+
+          const select = document.getElementById("gameVariant");
+          if (select) select.value = currentGameVariant;
+
+          setupCanvas();
+          renderNodes();
+          updateUndoButtonUI();
+          updateUI();
+          return true;
+        }
+      } catch (e) {
+        console.error("Erreur lors du chargement de la sauvegarde :", e);
+      }
+    }
+  }
+  return false;
+}
+
+function clearGameState() {
+  if (typeof Storage !== "undefined") {
+    localStorage.removeItem("moulin_game_save");
+  }
+}
+
 // --- INITIALISATION DU WEB WORKER IA (ARRIÈRE-PLAN) ---
 let aiWorker = new Worker("ai.worker.js");
 
@@ -202,12 +254,14 @@ aiWorker.onmessage = function (e) {
     if (checkMillCreated(bestMove.to, PLAYER.RED)) {
       state.isRemoving = true;
       playSound("mill");
+      saveGameState();
       updateUI();
       setTimeout(triggerAIMove, 400);
       return;
     } else {
       switchTurn();
     }
+    saveGameState();
     updateUI();
   }
 };
@@ -447,12 +501,14 @@ function setupConnectionHandlers() {
     }
     if (data.type === "GAME_STATE") {
       state = data.state;
+      saveGameState();
       updateUI();
     }
     if (data.type === "UNDO") {
       undoCounts = data.undoCounts;
       if (data.state) state = data.state;
       updateUndoButtonUI();
+      saveGameState();
       updateUI();
       flashStatus("L'adversaire a annulé un coup !");
       return;
@@ -571,6 +627,7 @@ function escapeHtml(text) {
 }
 
 function initGame() {
+  clearGameState();
   const size = currentGameVariant === "6" ? 16 : 24;
   const initialReserves = currentGameVariant === "6" ? 6 : 9;
 
@@ -626,6 +683,7 @@ function undoMove() {
   undoCounts[playerToUndo]--;
   updateUndoButtonUI();
   playSound("click");
+  saveGameState();
   updateUI();
   flashStatus("Coup annulé avec succès !");
 
@@ -740,6 +798,7 @@ function handleNodeClick(index) {
   });
 
   processMove(index);
+  saveGameState();
   broadcastGameState();
 }
 
@@ -756,6 +815,7 @@ function processMove(index) {
         if (checkWinConditions(opponent)) {
           state.gameOver = true;
           state.winner = state.currentPlayer;
+          clearGameState();
           updateUI();
           return;
         }
@@ -829,6 +889,7 @@ function switchTurn() {
     if (!hasAnyValidMoves(state.currentPlayer)) {
       state.gameOver = true;
       state.winner = getOpponent(state.currentPlayer);
+      clearGameState();
     }
   }
 
@@ -865,10 +926,12 @@ function triggerAIMove() {
     if (checkWinConditions(PLAYER.BLUE)) {
       state.gameOver = true;
       state.winner = PLAYER.RED;
+      clearGameState();
       updateUI();
       return;
     }
     switchTurn();
+    saveGameState();
     return;
   }
 
@@ -920,6 +983,7 @@ function triggerAIMove() {
     if (checkMillCreated(targetPos, PLAYER.RED)) {
       state.isRemoving = true;
       playSound("mill");
+      saveGameState();
       setTimeout(triggerAIMove, 400);
     } else {
       switchTurn();
@@ -939,6 +1003,7 @@ function triggerAIMove() {
             moved = true;
             state.isRemoving = true;
             playSound("mill");
+            saveGameState();
             setTimeout(triggerAIMove, 400);
             updateUI();
             return;
@@ -960,6 +1025,7 @@ function triggerAIMove() {
         if (checkMillCreated(target, PLAYER.RED)) {
           state.isRemoving = true;
           playSound("mill");
+          saveGameState();
           setTimeout(triggerAIMove, 400);
         } else {
           switchTurn();
@@ -968,6 +1034,7 @@ function triggerAIMove() {
       }
     }
   }
+  saveGameState();
   updateUI();
 }
 
@@ -1426,7 +1493,7 @@ if (pseudoInput) {
   });
 }
 
-// Animation d'entrée au chargement de la page
+// Chargement initial au démarrage de la page avec vérification du LocalStorage
 window.addEventListener("load", () => {
   setTimeout(() => {
     const introScreen = document.getElementById("intro-screen");
@@ -1435,9 +1502,12 @@ window.addEventListener("load", () => {
       setTimeout(() => introScreen.remove(), 700);
     }
   }, 1200);
-});
 
-switchGameMode("local");
+  // Restauration de la partie en cours si elle existe
+  if (!loadGameState()) {
+    switchGameMode("local");
+  }
+});
 
 // --- ENREGISTREMENT DU SERVICE WORKER (MODE HORS LIGNE / PWA) ---
 if ("serviceWorker" in navigator) {
