@@ -183,7 +183,7 @@ const modalTitle = document.getElementById("modalTitle");
 const modalMessage = document.getElementById("modalMessage");
 const modalIcon = document.getElementById("modalIcon");
 
-// --- SYSTÈME DE SAUVEGARDE LOCALE (LOCALSTORAGE) ---
+// --- SYSTÈME DE SAUVEGARDE LOCALE (LOCALSTORAGE)[cite: 1] ---
 function saveGameState() {
   if (typeof Storage !== "undefined") {
     const saveData = {
@@ -1201,7 +1201,12 @@ function updateUI() {
     }
   } else {
     blueLabelEl.textContent = "Joueur";
-    redLabelEl.textContent = "Alpha-Beta (IA)";
+    let aiName = "Alpha-Beta (IA)";
+    if (aiDifficulty === "easy") aiName = "Facile (IA)";
+    else if (aiDifficulty === "medium") aiName = "Moyen (IA)";
+    else if (aiDifficulty === "hard") aiName = "Difficile (IA)";
+    else if (aiDifficulty === "alphabeta") aiName = "Alpha-Beta (IA)";
+    redLabelEl.textContent = aiName;
   }
 
   if (state.currentPlayer === PLAYER.BLUE) {
@@ -1239,7 +1244,13 @@ function updateUI() {
     if (state.winner === PLAYER.RED) {
       winnerDisplay =
         activeMode === "ai"
-          ? "Alpha-Beta (IA)"
+          ? aiDifficulty === "easy"
+            ? "Facile (IA)"
+            : aiDifficulty === "medium"
+              ? "Moyen (IA)"
+              : aiDifficulty === "hard"
+                ? "Difficile (IA)"
+                : "Alpha-Beta (IA)"
           : activeMode === "online"
             ? opponentName
             : currentTheme === colorThemes.emerald
@@ -1306,7 +1317,16 @@ function updateUI() {
                 : "Rouge";
       }
     } else if (activeMode === "ai") {
-      curName = state.currentPlayer === PLAYER.BLUE ? "Joueur" : "Alpha-Beta";
+      curName =
+        state.currentPlayer === PLAYER.BLUE
+          ? "Joueur"
+          : aiDifficulty === "easy"
+            ? "Facile"
+            : aiDifficulty === "medium"
+              ? "Moyen"
+              : aiDifficulty === "hard"
+                ? "Difficile"
+                : "Alpha-Beta";
     } else {
       curName = state.currentPlayer === myRole ? myPseudo : opponentName;
     }
@@ -1332,7 +1352,15 @@ function updateUI() {
       }
     } else if (activeMode === "ai") {
       curName =
-        state.currentPlayer === PLAYER.BLUE ? "Joueur" : "Alpha-Beta (IA)";
+        state.currentPlayer === PLAYER.BLUE
+          ? "Joueur"
+          : aiDifficulty === "easy"
+            ? "Facile (IA)"
+            : aiDifficulty === "medium"
+              ? "Moyen (IA)"
+              : aiDifficulty === "hard"
+                ? "Difficile (IA)"
+                : "Alpha-Beta (IA)";
     } else {
       curName = state.currentPlayer === myRole ? myPseudo : opponentName;
     }
