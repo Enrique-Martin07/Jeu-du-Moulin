@@ -1,4 +1,4 @@
-// --- WEB WORKER : SKYNET GOD MODE (IA IMPITOYABLE & SADIQUE) ---
+// --- WEB WORKER : SKYNET GOD MODE v2 (INSTINCT DE TUEUR & ULTRA RAPIDE) ---
 
 let currentGameVariant = "9";
 let transpositionTable = new Map();
@@ -91,41 +91,73 @@ self.onmessage = function (e) {
   transpositionTable.clear();
 
   const totalPieces = state.board.filter((v) => v !== PLAYER.NONE).length;
-  // Profondeur accrue (6 coups minimum)
-  const depth = totalPieces <= 12 ? 6 : 5;
+  // Profondeur adaptative ultra-réactive pour zéro latence
+  const depth = totalPieces <= 10 ? 5 : 4;
 
   const bestMove = getBestAlphaBetaMove(state, depth);
   self.postMessage(bestMove);
 };
 
 function getBestAlphaBetaMove(currentState, depth) {
-  let bestScore = -Infinity;
-  let bestMove = null;
   const possibleMoves = getAllPossibleMoves(currentState, PLAYER.RED);
+  if (possibleMoves.length === 0) return null;
 
-  // Tri hyper-agressif des coups : prioriser l'activation des pièges et des moulins
+  // 1. INSTINCT DE TUEUR IMMÉDIAT : Si un coup gagne tout de suite, on le joue instantanément (0ms)
+  for (let move of possibleMoves) {
+    let nextState = simulateMove(currentState, move, PLAYER.RED);
+    if (nextState.gameOver && nextState.winner === PLAYER.RED) {
+      return move;
+    }
+    if (
+      currentState.reserves[PLAYER.BLUE] === 0 &&
+      currentState.reserves[PLAYER.RED] === 0
+    ) {
+      let bluePiecesCount = nextState.board.filter(
+        (v) => v === PLAYER.BLUE,
+      ).length;
+      if (bluePiecesCount < 3) {
+        return move;
+      }
+    }
+  }
+
+  // 2. TRI TRÈS AGRESSIF DES COUPS POUR L'ALPHA-BETA
   possibleMoves.sort((a, b) => {
     let aMill = checkMillCreatedInState(currentState, a.to, PLAYER.RED)
-      ? 500
+      ? 1000
       : 0;
     let bMill = checkMillCreatedInState(currentState, b.to, PLAYER.RED)
-      ? 500
+      ? 1000
       : 0;
     return bMill - aMill;
   });
 
+  let bestScore = -Infinity;
+  let bestMove = possibleMoves[0];
+  let alpha = -Infinity;
+  let beta = Infinity;
+
   for (let move of possibleMoves) {
     let nextState = simulateMove(currentState, move, PLAYER.RED);
-    let score = alphaBeta(nextState, depth - 1, -Infinity, Infinity, false);
+    if (nextState.gameOver && nextState.winner === PLAYER.RED) {
+      return move;
+    }
+    let score = alphaBeta(nextState, depth - 1, alpha, beta, false);
     if (score > bestScore) {
       bestScore = score;
       bestMove = move;
     }
+    alpha = Math.max(alpha, score);
   }
-  return bestMove || possibleMoves[0];
+
+  return bestMove;
 }
 
 function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
+  if (nodeState.gameOver) {
+    return nodeState.winner === PLAYER.RED ? 10000000 : -10000000;
+  }
+
   const boardKey =
     nodeState.board.join("") +
     "-" +
@@ -138,7 +170,7 @@ function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
     return transpositionTable.get(boardKey);
   }
 
-  if (depth === 0 || nodeState.gameOver) {
+  if (depth === 0) {
     let evalScore = evaluateBoardGodMode(nodeState);
     transpositionTable.set(boardKey, evalScore);
     return evalScore;
@@ -148,6 +180,9 @@ function alphaBeta(nodeState, depth, alpha, beta, maximizingPlayer) {
     nodeState,
     maximizingPlayer ? PLAYER.RED : PLAYER.BLUE,
   );
+  if (moves.length === 0) {
+    return maximizingPlayer ? -5000000 : 5000000;
+  }
 
   if (maximizingPlayer) {
     let maxEval = -Infinity;
@@ -225,17 +260,18 @@ function simulateMove(st, move, player) {
       const nonMillPieces = opponentPieces.filter(
         (idx) => !isPartOfMillInState(newState, idx, opponent),
       );
-
-      // Retirer la pièce adverse qui ruine le plus sa structure (ou qui détruit une menace potentielle)
-      let targetToRemove = nonMillPieces[0] || opponentPieces[0];
-      let bestRemovalScore = -Infinity;
-
       const candidates =
         nonMillPieces.length > 0 ? nonMillPieces : opponentPieces;
+
+      let targetToRemove = candidates[0];
+      let bestRemovalScore = -Infinity;
+
       for (let cand of candidates) {
         let tempState = JSON.parse(JSON.stringify(newState));
         tempState.board[cand] = PLAYER.NONE;
-        let score = countPotentialMills(tempState, opponent) * -100;
+        let score =
+          countPotentialMills(tempState, opponent) * -200 +
+          countIsolatedPieces(tempState, opponent) * 100;
         if (score > bestRemovalScore) {
           bestRemovalScore = score;
           targetToRemove = cand;
@@ -245,6 +281,16 @@ function simulateMove(st, move, player) {
       newState.board[targetToRemove] = PLAYER.NONE;
     }
   }
+
+  const opp = player === PLAYER.RED ? PLAYER.BLUE : PLAYER.RED;
+  if (newState.reserves[opp] === 0) {
+    const oppPiecesOnBoard = newState.board.filter((v) => v === opp).length;
+    if (oppPiecesOnBoard < 3) {
+      newState.gameOver = true;
+      newState.winner = player;
+    }
+  }
+
   return newState;
 }
 
@@ -263,7 +309,6 @@ function isPartOfMillInState(st, index, player) {
   return checkMillCreatedInState(st, index, player);
 }
 
-// Compte les opportunités de créer un moulin (2 pions + 1 case vide)
 function countPotentialMills(st, player) {
   let count = 0;
   const mills = currentGameVariant === "6" ? MILLS_6 : MILLS_9;
@@ -275,17 +320,30 @@ function countPotentialMills(st, player) {
   return count;
 }
 
-// --- ÉVALUATION SADIQUE (GOD MODE) ---
+function countIsolatedPieces(st, player) {
+  let count = 0;
+  const adjacency = currentGameVariant === "6" ? ADJACENCY_6 : ADJACENCY_9;
+  st.board.forEach((val, idx) => {
+    if (val === player) {
+      const neighbors = adjacency[idx];
+      const hasEmptyNeighbor = neighbors.some(
+        (n) => st.board[n] === PLAYER.NONE,
+      );
+      if (!hasEmptyNeighbor) count++;
+    }
+  });
+  return count;
+}
+
 function evaluateBoardGodMode(st) {
-  const redPieces =
+  const redPiecesCount =
     st.board.filter((v) => v === PLAYER.RED).length + st.reserves[PLAYER.RED];
-  const bluePieces =
+  const bluePiecesCount =
     st.board.filter((v) => v === PLAYER.BLUE).length + st.reserves[PLAYER.BLUE];
 
   const blueOnBoard = st.board.filter((v) => v === PLAYER.BLUE).length;
   const redOnBoard = st.board.filter((v) => v === PLAYER.RED).length;
 
-  // Victoire immédiate
   if (st.reserves[PLAYER.BLUE] === 0 && blueOnBoard < 3) return 10000000;
   if (st.reserves[PLAYER.RED] === 0 && redOnBoard < 3) return -10000000;
 
@@ -303,20 +361,18 @@ function evaluateBoardGodMode(st) {
   const redMoves = getAllPossibleMoves(st, PLAYER.RED).length;
   const blueMoves = getAllPossibleMoves(st, PLAYER.BLUE).length;
 
-  // Détection de fourches (double menaces simultanées)
-  const redForks = redPot >= 2 ? 1500 : 0;
-  const blueForks = bluePot >= 2 ? 1500 : 0;
+  const blueIsolated = countIsolatedPieces(st, PLAYER.BLUE);
+  const redIsolated = countIsolatedPieces(st, PLAYER.RED);
 
-  // Asphyxie : pénaliser drastiquement l'adversaire s'il a très peu de coups possibles
-  const asphyxiaBonus = blueMoves === 0 ? 500000 : (20 - blueMoves) * 150;
+  const asphyxiaBonus = blueMoves === 0 ? 5000000 : (20 - blueMoves) * 300;
 
   let score =
-    (redPieces - bluePieces) * 5000 +
-    (redMills - blueMills) * 2000 +
-    (redPot - bluePot) * 800 +
-    (redForks - blueForks) +
+    (redPiecesCount - bluePiecesCount) * 10000 +
+    (redMills - blueMills) * 4000 +
+    (redPot - bluePot) * 1500 +
+    (blueIsolated - redIsolated) * 2000 +
     asphyxiaBonus +
-    redMoves * 30;
+    redMoves * 50;
 
   return score;
 }
